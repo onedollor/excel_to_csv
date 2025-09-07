@@ -5,7 +5,7 @@ An intelligent automation tool for converting Excel worksheets to CSV files with
 ## Features
 
 ### 🧠 Intelligent Analysis
-- **90% Confidence Detection**: Uses sophisticated algorithms to identify data tables with 90% confidence
+- **80% Confidence Detection**: Uses sophisticated algorithms to identify data tables with 80% confidence
 - **Multi-component Scoring**: Analyzes data density (40%), header quality (30%), and data consistency (30%)
 - **Header Detection**: Automatically identifies and validates column headers
 - **Data Type Recognition**: Detects numeric, date, and categorical data patterns
