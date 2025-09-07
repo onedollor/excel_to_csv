@@ -35,12 +35,18 @@ class ConfigManager:
     - Environment variable overrides
     - Configuration validation and defaults
     - Merging multiple configuration sources
+    - Auto-loading config/default.yaml when no path specified
+    
+    Configuration Loading Order:
+    1. If config_path is provided, load that file
+    2. If config_path is None, try to load config/default.yaml
+    3. If config/default.yaml doesn't exist, use built-in defaults
     
     Example:
         >>> config_manager = ConfigManager()
-        >>> config = config_manager.load_config("./config/default.yaml")
+        >>> config = config_manager.load_config()  # Auto-loads config/default.yaml
         >>> print(config.confidence_threshold)
-        0.9
+        0.8
     """
     
     # Environment variable prefix
@@ -56,7 +62,7 @@ class ConfigManager:
             "max_file_size": 100,
         },
         "confidence": {
-            "threshold": 0.9,
+            "threshold": 0.7,
             "weights": {
                 "data_density": 0.4,
                 "header_quality": 0.3,
@@ -138,7 +144,8 @@ class ConfigManager:
         """Load configuration from file with optional environment overrides.
         
         Args:
-            config_path: Path to configuration file (None for default)
+            config_path: Path to configuration file. If None, will try to load
+                        config/default.yaml, falling back to built-in defaults
             use_env_overrides: Whether to apply environment variable overrides
             
         Returns:
@@ -185,8 +192,14 @@ class ConfigManager:
             Configuration dictionary
         """
         if config_path is None:
-            logger.info("No config path provided, using default configuration")
-            return self.DEFAULT_CONFIG.copy()
+            # Try to load config/default.yaml first
+            default_config_path = Path("config/default.yaml")
+            if default_config_path.exists():
+                logger.info(f"No config path provided, loading default config from {default_config_path}")
+                config_path = default_config_path
+            else:
+                logger.info("No config path provided and config/default.yaml not found, using built-in defaults")
+                return self.DEFAULT_CONFIG.copy()
         
         config_file = Path(config_path)
         if not config_file.exists():
@@ -357,7 +370,7 @@ class ConfigManager:
         # Create main configuration
         return Config(
             monitored_folders=[Path(folder) for folder in monitoring.get("folders", ["./input"])],
-            confidence_threshold=confidence.get("threshold", 0.9),
+            confidence_threshold=confidence.get("threshold", 0.7),
             output_folder=Path(output["folder"]) if output.get("folder") else None,
             file_patterns=monitoring.get("file_patterns", ["*.xlsx", "*.xls"]),
             logging=logging_config_obj,
