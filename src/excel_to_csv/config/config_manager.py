@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 import yaml
 
 from excel_to_csv.models.data_models import (
+    ArchiveConfig,
     Config,
     LoggingConfig,
     OutputConfig,
@@ -130,6 +131,13 @@ class ConfigManager:
             "max_path_length": 260,
             "follow_symlinks": False,
         },
+        "archiving": {
+            "enabled": False,  # Disabled by default for backward compatibility
+            "archive_folder_name": "archive",
+            "timestamp_format": "%Y%m%d_%H%M%S",
+            "handle_conflicts": True,
+            "preserve_structure": True,
+        },
     }
     
     def __init__(self) -> None:
@@ -240,6 +248,10 @@ class ConfigManager:
             f"{self.ENV_PREFIX}INCLUDE_TIMESTAMP": ["output", "include_timestamp"],
             f"{self.ENV_PREFIX}ENCODING": ["output", "encoding"],
             f"{self.ENV_PREFIX}DELIMITER": ["output", "delimiter"],
+            f"{self.ENV_PREFIX}ARCHIVE_ENABLED": ["archiving", "enabled"],
+            f"{self.ENV_PREFIX}ARCHIVE_FOLDER_NAME": ["archiving", "archive_folder_name"],
+            f"{self.ENV_PREFIX}ARCHIVE_TIMESTAMP_FORMAT": ["archiving", "timestamp_format"],
+            f"{self.ENV_PREFIX}ARCHIVE_HANDLE_CONFLICTS": ["archiving", "handle_conflicts"],
         }
         
         # Apply environment overrides
@@ -339,6 +351,7 @@ class ConfigManager:
         output = config_dict.get("output", {})
         processing = config_dict.get("processing", {})
         logging_config = config_dict.get("logging", {})
+        archiving = config_dict.get("archiving", {})
         
         # Create sub-configurations
         retry_settings = RetryConfig(
@@ -367,6 +380,14 @@ class ConfigManager:
             structured_enabled=logging_config.get("structured", {}).get("enabled", False),
         )
         
+        archive_config = ArchiveConfig(
+            enabled=archiving.get("enabled", False),
+            archive_folder_name=archiving.get("archive_folder_name", "archive"),
+            timestamp_format=archiving.get("timestamp_format", "%Y%m%d_%H%M%S"),
+            handle_conflicts=archiving.get("handle_conflicts", True),
+            preserve_structure=archiving.get("preserve_structure", True),
+        )
+        
         # Create main configuration
         return Config(
             monitored_folders=[Path(folder) for folder in monitoring.get("folders", ["./input"])],
@@ -376,6 +397,7 @@ class ConfigManager:
             logging=logging_config_obj,
             retry_settings=retry_settings,
             output_config=output_config,
+            archive_config=archive_config,
             max_concurrent=processing.get("max_concurrent", 5),
             max_file_size_mb=monitoring.get("max_file_size", 100),
         )
@@ -501,6 +523,13 @@ class ConfigManager:
                 "structured": {
                     "enabled": config.logging.structured_enabled,
                 },
+            },
+            "archiving": {
+                "enabled": config.archive_config.enabled,
+                "archive_folder_name": config.archive_config.archive_folder_name,
+                "timestamp_format": config.archive_config.timestamp_format,
+                "handle_conflicts": config.archive_config.handle_conflicts,
+                "preserve_structure": config.archive_config.preserve_structure,
             },
         }
     

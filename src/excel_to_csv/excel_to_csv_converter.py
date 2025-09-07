@@ -25,6 +25,7 @@ from excel_to_csv.processors.excel_processor import ExcelProcessor, ExcelProcess
 from excel_to_csv.analysis.confidence_analyzer import ConfidenceAnalyzer
 from excel_to_csv.generators.csv_generator import CSVGenerator, CSVGenerationError
 from excel_to_csv.monitoring.file_monitor import FileMonitor, FileMonitorError
+from excel_to_csv.archiving.archive_manager import ArchiveManager
 from excel_to_csv.utils.logger import setup_logging, get_processing_logger, shutdown_logging
 
 
@@ -82,6 +83,10 @@ class ExcelToCSVConverter:
         )
         
         self.csv_generator = CSVGenerator()
+        
+        self.archive_manager = ArchiveManager(
+            retry_config=self.config.retry_settings
+        )
         
         # Processing state
         self.stats = ProcessingStats()
@@ -338,10 +343,37 @@ class ExcelToCSVConverter:
                     self.logger.error(f"Failed to generate CSV for worksheet "
                                     f"'{worksheet.worksheet_name}': {e}")
             
+            # Step 4: Archive source file if CSV generation was successful and archiving is enabled
+            archive_success = True
+            if (csv_files_created > 0 or len(qualified_worksheets) == 0) and self.config.archive_config.enabled:
+                try:
+                    archive_result = self.archive_manager.archive_file(
+                        file_path, 
+                        self.config.archive_config
+                    )
+                    
+                    if archive_result.success:
+                        self.logger.info(f"Successfully archived: {file_path} -> {archive_result.archive_path}")
+                        # Update worksheet data with archive information
+                        for worksheet in worksheets:
+                            worksheet.archive_result = archive_result
+                            worksheet.archived_at = archive_result.timestamp_used
+                    else:
+                        archive_success = False
+                        self.logger.warning(f"Archiving failed for {file_path}: {archive_result.error_message}")
+                        
+                except Exception as e:
+                    archive_success = False
+                    self.logger.error(f"Unexpected error during archiving of {file_path}: {e}", exc_info=True)
+            
             # Log completion summary
+            archive_status = ""
+            if self.config.archive_config.enabled:
+                archive_status = " (archived)" if archive_success else " (archive failed)"
+            
             self.logger.info(
                 f"Completed processing {file_path}: "
-                f"{csv_files_created}/{len(worksheets)} worksheets converted"
+                f"{csv_files_created}/{len(worksheets)} worksheets converted{archive_status}"
             )
             
             return csv_files_created > 0 or len(qualified_worksheets) == 0
