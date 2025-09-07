@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//root/.config/claude-code/**)",
+      "Read(//home/lin/.config/claude-code/**)",
+      "Read(//home/lin/.config/**)",
+      "Bash(curl:*)",
+      "Bash(claude-code mcp:*)",
+      "mcp__spec-workflow__spec-workflow-guide",
+      "mcp__spec-workflow__get-steering-context",
+      "mcp__spec-workflow__get-template-context",
+      "mcp__spec-workflow__create-spec-doc",
+      "mcp__spec-workflow__request-approval",
+      "mcp__spec-workflow__get-approval-status",
+      "mcp__spec-workflow__delete-approval",
+      "mcp__spec-workflow__steering-guide",
+      "mcp__spec-workflow__create-steering-doc",
+      "mcp__spec-workflow__spec-status",
+      "mcp__spec-workflow__manage-tasks",
+      "Bash(python -m pytest tests/test_coverage_config.py -v)",
+      "Bash(python3 -m pytest tests/test_coverage_config.py -v)",
+      "Bash(python3 -m pytest tests/test_coverage_config.py -v --no-cov)",
+      "Bash(python3 -m pytest tests/conftest.py::test_temp_dir --cov=excel_to_csv --cov-report=term-missing --cov-fail-under=90)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3:*)",
+      "Bash(chmod:*)",
+      "Bash(pip install:*)",
+      "mcp__spec-workflow__get-spec-context",
+      "mcp__spec-workflow__refresh-tasks",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/test_coverage_config.py --cov=excel_to_csv --cov-report=html:htmlcov --cov-report=term-missing --cov-fail-under=90)",
+      "Bash(source:*)",
+      "Bash(python -m pytest tests/test_coverage_config.py --cov=excel_to_csv --cov-report=html:htmlcov --cov-report=term-missing --cov-fail-under=90)",
+      "Bash(python:*)",
+      "Bash(sed:*)",
+      "Bash(find:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "context7",
+    "playwright",
+    "sequential-thinking",
+    "spec-workflow"
+  ]
+}

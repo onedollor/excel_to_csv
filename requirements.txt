@@ -1,0 +1,16 @@
+# Excel-to-CSV Converter - Production Dependencies
+# Core data processing
+pandas>=2.0.0
+openpyxl>=3.1.0
+numpy>=1.24.0
+
+# File system monitoring for service mode
+watchdog>=3.0.0
+
+# Configuration management
+pyyaml>=6.0
+
+# CLI interface
+click>=8.1.0
+
+# Python version requirement: >=3.9

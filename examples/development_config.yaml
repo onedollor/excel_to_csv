@@ -1,0 +1,49 @@
+# Development Configuration for Excel-to-CSV Converter
+# Optimized for development and testing
+
+monitoring:
+  folders:
+    - "./test_input"
+  file_patterns:
+    - "*.xlsx"
+    - "*.xls"
+  process_existing: true
+  debounce_seconds: 1.0
+
+output:
+  folder: "./test_output"
+  naming_pattern: "{filename}_{worksheet}.csv"
+  include_timestamp: false
+  encoding: "utf-8"
+
+confidence:
+  threshold: 0.7           # Lower threshold for testing
+  weights:
+    data_density: 0.4
+    header_quality: 0.3
+    consistency: 0.3
+
+processing:
+  max_concurrent: 2        # Limited concurrency for development
+  max_file_size_mb: 50     # Smaller files for testing
+  timeout_seconds: 120
+  retry:
+    max_attempts: 1        # Quick failure for debugging
+    delay_seconds: 2
+
+logging:
+  level: "DEBUG"           # Verbose logging for development
+  format: "text"           # Human-readable logs
+  file:
+    path: "logs/development.log"
+    rotation_size: "10MB"
+    retention_days: 7
+    compress: false
+  console:
+    enabled: true          # Console output for development
+    level: "INFO"
+    use_colors: true
+
+monitoring_stats:
+  enabled: true
+  report_interval: 60      # More frequent stats in development

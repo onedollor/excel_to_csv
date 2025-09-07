@@ -1,0 +1,27 @@
+{
+  "id": "approval_1757186522805_keom703kq",
+  "title": "Excel-to-CSV Converter Design",
+  "filePath": ".spec-workflow/specs/excel-to-csv-converter/design.md",
+  "type": "document",
+  "status": "needs-revision",
+  "createdAt": "2025-09-06T19:22:02.805Z",
+  "category": "spec",
+  "categoryName": "excel-to-csv-converter",
+  "response": "Feedback Summary (1 comments):\n\nSpecific Text Comments:\n1. \"## Testing Strategy\": need add coverage test\n",
+  "annotations": "{\n  \"decision\": \"needs-revision\",\n  \"comments\": [\n    {\n      \"type\": \"selection\",\n      \"comment\": \"need add coverage test\",\n      \"timestamp\": \"2025-09-06T19:24:55.978Z\",\n      \"selectedText\": \"## Testing Strategy\",\n      \"highlightColor\": {\n        \"bg\": \"rgba(255, 235, 59, 0.3)\",\n        \"border\": \"#FFEB3B\",\n        \"name\": \"#ffeb3b\"\n      },\n      \"id\": \"comment_1757186695978_abkm750n7\"\n    }\n  ],\n  \"summary\": \"Feedback Summary (1 comments):\\n\\nSpecific Text Comments:\\n1. \\\"## Testing Strategy\\\": need add coverage test\\n\",\n  \"timestamp\": \"2025-09-06T19:25:03.402Z\"\n}",
+  "respondedAt": "2025-09-06T19:25:03.405Z",
+  "comments": [
+    {
+      "type": "selection",
+      "comment": "need add coverage test",
+      "timestamp": "2025-09-06T19:24:55.978Z",
+      "selectedText": "## Testing Strategy",
+      "highlightColor": {
+        "bg": "rgba(255, 235, 59, 0.3)",
+        "border": "#FFEB3B",
+        "name": "#ffeb3b"
+      },
+      "id": "comment_1757186695978_abkm750n7"
+    }
+  ]
+}

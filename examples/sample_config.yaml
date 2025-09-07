@@ -1,0 +1,265 @@
+# Excel-to-CSV Converter - Sample Configuration File
+#
+# This file demonstrates all available configuration options with explanations.
+# Copy this file and modify it for your specific use case.
+#
+# Usage: excel-to-csv service --config examples/sample_config.yaml
+
+# =============================================================================
+# FOLDER MONITORING CONFIGURATION
+# =============================================================================
+monitoring:
+  # List of folders to monitor for Excel files
+  # Use absolute paths for production deployments
+  folders:
+    - "./input"           # Relative path (current directory)
+    - "/data/incoming"    # Absolute path (Linux/macOS)
+    # - "C:\\Data\\Input"   # Windows path example
+  
+  # File patterns to match (supports glob patterns)
+  file_patterns:
+    - "*.xlsx"            # Excel 2007+ format
+    - "*.xls"             # Legacy Excel format
+    # - "data_*.xlsx"       # Pattern matching example
+    # - "report_[0-9]*.xlsx" # Regex-like pattern
+  
+  # Whether to process existing files when starting service
+  # true = process all matching files in folders
+  # false = only process new files detected after startup
+  process_existing: true
+  
+  # File monitoring debounce time in seconds
+  # Prevents duplicate processing during file writes
+  debounce_seconds: 2.0
+
+# =============================================================================
+# OUTPUT CONFIGURATION
+# =============================================================================
+output:
+  # Output directory for generated CSV files
+  folder: "./output"
+  
+  # Naming pattern for output CSV files
+  # Available variables: {filename}, {worksheet}, {timestamp}
+  naming_pattern: "{filename}_{worksheet}.csv"
+  
+  # Include timestamp in filenames (when {timestamp} is used)
+  include_timestamp: false
+  
+  # CSV file encoding
+  encoding: "utf-8"
+  
+  # CSV formatting options
+  csv_options:
+    # Field separator (currently only comma is supported)
+    separator: ","
+    # Quote character for fields containing separators
+    quotechar: '"'
+    # Whether to quote all fields or only when necessary
+    quoting: "minimal"  # minimal, all, non-numeric, none
+
+# =============================================================================
+# CONFIDENCE ANALYSIS CONFIGURATION
+# =============================================================================
+confidence:
+  # Minimum confidence threshold (0.0 to 1.0)
+  # Only worksheets meeting this threshold will be converted
+  # 0.9 = 90% confidence, 0.7 = 70% confidence
+  threshold: 0.9
+  
+  # Weights for confidence calculation components (must sum to 1.0)
+  weights:
+    data_density: 0.4     # Weight for data density score (40%)
+    header_quality: 0.3   # Weight for header quality score (30%)
+    consistency: 0.3      # Weight for data consistency score (30%)
+  
+  # Advanced analysis options
+  analysis:
+    # Minimum number of rows required to consider as data table
+    min_data_rows: 3
+    # Minimum number of columns required
+    min_data_columns: 2
+    # Maximum percentage of empty cells allowed in data region
+    max_empty_cell_percentage: 0.3
+
+# =============================================================================
+# PROCESSING CONFIGURATION
+# =============================================================================
+processing:
+  # Maximum number of files to process concurrently
+  # Adjust based on available CPU cores and memory
+  # Formula: number_of_cores * 2 is usually a good starting point
+  max_concurrent: 4
+  
+  # Maximum Excel file size to process (in megabytes)
+  # Files larger than this will be skipped
+  max_file_size_mb: 100
+  
+  # Processing timeout per file (in seconds)
+  # 0 means no timeout
+  timeout_seconds: 300
+  
+  # Retry configuration
+  retry:
+    # Maximum number of retry attempts for failed files
+    max_attempts: 3
+    # Delay between retry attempts (in seconds)
+    delay_seconds: 5
+    # Whether to retry on specific error types
+    retry_on_memory_error: false
+    retry_on_permission_error: true
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+  
+  # Log format: "json" for structured logs, "text" for human-readable
+  format: "json"
+  
+  # Log file configuration
+  file:
+    # Log file path (relative to working directory or absolute)
+    path: "logs/excel_to_csv.log"
+    # Maximum log file size before rotation
+    rotation_size: "10MB"
+    # Number of days to keep log files
+    retention_days: 30
+    # Whether to compress rotated log files
+    compress: true
+  
+  # Console logging (stdout/stderr)
+  console:
+    # Enable console logging
+    enabled: true
+    # Console log level (can be different from file level)
+    level: "INFO"
+    # Use colors in console output
+    use_colors: true
+
+# =============================================================================
+# PERFORMANCE MONITORING
+# =============================================================================
+monitoring_stats:
+  # Enable performance statistics collection
+  enabled: true
+  
+  # Statistics reporting interval (in seconds)
+  report_interval: 300  # 5 minutes
+  
+  # Metrics to collect
+  metrics:
+    # Processing time per file
+    processing_time: true
+    # Memory usage tracking
+    memory_usage: true
+    # File size statistics
+    file_sizes: true
+    # Success/failure rates
+    success_rates: true
+  
+  # Statistics export options
+  export:
+    # Export format: json, csv
+    format: "json"
+    # Export file path
+    path: "stats/processing_stats.json"
+    # Export interval (in seconds)
+    interval: 3600  # 1 hour
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  # How to handle files that fail processing
+  failed_files:
+    # Action: skip, move, copy
+    action: "skip"
+    # Directory to move/copy failed files (if action is move/copy)
+    # destination: "./failed"
+  
+  # How to handle files that don't meet confidence threshold
+  low_confidence_files:
+    # Action: skip, log, move
+    action: "log"
+    # Directory to move low-confidence files (if action is move)
+    # destination: "./low_confidence"
+  
+  # Error notification options
+  notifications:
+    # Enable error notifications
+    enabled: false
+    # Notification methods: email, webhook, file
+    methods: []
+    # Email configuration (if email method is enabled)
+    # email:
+    #   smtp_server: "smtp.gmail.com"
+    #   smtp_port: 587
+    #   username: "your-email@gmail.com"
+    #   password: "your-password"
+    #   recipients: ["admin@company.com"]
+
+# =============================================================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# =============================================================================
+
+# Development environment example
+environments:
+  development:
+    monitoring:
+      folders: ["./dev_input"]
+    output:
+      folder: "./dev_output"
+    confidence:
+      threshold: 0.7  # Lower threshold for testing
+    processing:
+      max_concurrent: 2
+    logging:
+      level: "DEBUG"
+  
+  production:
+    monitoring:
+      folders: ["/data/excel_input", "/backup/excel_archive"]
+    output:
+      folder: "/data/csv_output"
+    confidence:
+      threshold: 0.9
+    processing:
+      max_concurrent: 8
+      max_file_size_mb: 500
+    logging:
+      level: "INFO"
+      file:
+        path: "/var/log/excel_to_csv/app.log"
+
+# =============================================================================
+# NOTES AND EXAMPLES
+# =============================================================================
+
+# Example naming patterns:
+# - "{filename}_{worksheet}.csv" → "report_Sheet1.csv"
+# - "converted_{filename}_{worksheet}_{timestamp}.csv" → "converted_report_Sheet1_20240101_120000.csv"
+# - "{worksheet}_from_{filename}.csv" → "Sheet1_from_report.csv"
+
+# Environment variable overrides:
+# Any configuration value can be overridden with environment variables
+# using the format: EXCEL_TO_CSV_SECTION_OPTION
+# Examples:
+#   EXCEL_TO_CSV_CONFIDENCE_THRESHOLD=0.8
+#   EXCEL_TO_CSV_OUTPUT_FOLDER="/custom/output"
+#   EXCEL_TO_CSV_PROCESSING_MAX_CONCURRENT=6
+#   EXCEL_TO_CSV_LOGGING_LEVEL="DEBUG"
+
+# File paths:
+# - Use forward slashes (/) for cross-platform compatibility
+# - Relative paths are relative to the working directory
+# - Absolute paths are recommended for production
+# - Windows paths with backslashes should be escaped: "C:\\Data\\Input"
+
+# Memory considerations:
+# - Large Excel files require significant memory
+# - Rule of thumb: 3-5x file size in RAM
+# - Monitor memory usage and adjust max_concurrent accordingly
+# - Consider setting max_file_size_mb to prevent memory issues

@@ -1,0 +1,62 @@
+# Production Configuration for Excel-to-CSV Converter
+# Optimized for high-volume production environments
+
+monitoring:
+  folders:
+    - "/data/excel/incoming"
+    - "/data/excel/archive"
+  file_patterns:
+    - "*.xlsx"
+    - "*.xls"
+  process_existing: false  # Only process new files in production
+  debounce_seconds: 5.0    # Longer debounce for network storage
+
+output:
+  folder: "/data/csv/processed"
+  naming_pattern: "{timestamp}_{filename}_{worksheet}.csv"
+  include_timestamp: true
+  encoding: "utf-8"
+
+confidence:
+  threshold: 0.9           # Strict threshold for production
+  weights:
+    data_density: 0.4
+    header_quality: 0.3
+    consistency: 0.3
+
+processing:
+  max_concurrent: 8        # Higher concurrency for production server
+  max_file_size_mb: 200    # Larger files allowed
+  timeout_seconds: 600     # 10 minute timeout
+  retry:
+    max_attempts: 3
+    delay_seconds: 10
+    retry_on_memory_error: false
+    retry_on_permission_error: true
+
+logging:
+  level: "INFO"            # Production logging level
+  format: "json"           # Structured logs for analysis
+  file:
+    path: "/var/log/excel_to_csv/production.log"
+    rotation_size: "50MB"
+    retention_days: 90     # Longer retention for production
+    compress: true
+  console:
+    enabled: false         # Disable console output in production
+
+monitoring_stats:
+  enabled: true
+  report_interval: 300
+  export:
+    format: "json"
+    path: "/var/log/excel_to_csv/stats.json"
+    interval: 1800
+
+error_handling:
+  failed_files:
+    action: "move"
+    destination: "/data/excel/failed"
+  low_confidence_files:
+    action: "move"
+    destination: "/data/excel/low_confidence"
