@@ -624,7 +624,7 @@ class ConfidenceAnalyzer:
         """
         try:
             # Try to convert to datetime
-            date_data = pd.to_datetime(str_data, errors='coerce', infer_datetime_format=True)
+            date_data = pd.to_datetime(str_data, errors='coerce')
             valid_dates = date_data.dropna()
             
             if len(valid_dates) == 0:

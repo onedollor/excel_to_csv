@@ -24,7 +24,7 @@ monitoring:
 # Confidence analysis settings
 confidence:
   # Minimum confidence threshold (0.0 to 1.0)
-  threshold: 0.8
+  threshold: 0.7
   
   # Weights for confidence scoring components
   weights:
@@ -137,3 +137,26 @@ security:
   
   # Whether to follow symbolic links
   follow_symlinks: false
+
+# File archiving settings
+archiving:
+  # Whether to automatically archive Excel files after processing
+  # When enabled, processed Excel files are moved to an "archive" subfolder
+  # within their original directory
+  enabled: false
+  
+  # Name of the archive subfolder to create
+  # This folder will be created within each monitored directory
+  archive_folder_name: "archive"
+  
+  # Timestamp format for resolving filename conflicts
+  # Used when a file with the same name already exists in the archive folder
+  timestamp_format: "%Y%m%d_%H%M%S"
+  
+  # Whether to handle filename conflicts by appending timestamps
+  # If false, conflicting files will overwrite existing archived files
+  handle_conflicts: true
+  
+  # Whether to preserve the original directory structure in archives
+  # Currently always true - archive folders mirror the input structure
+  preserve_structure: true

@@ -6,6 +6,7 @@ the application for structured data representation.
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -92,12 +93,16 @@ class WorksheetData:
         data: DataFrame containing the worksheet data
         metadata: Additional metadata about the worksheet
         confidence_score: Optional confidence score for the worksheet
+        archive_result: Optional result of archiving operation
+        archived_at: Timestamp when the source file was archived
     """
     source_file: Path
     worksheet_name: str
     data: pd.DataFrame
     metadata: Dict[str, Any] = field(default_factory=dict)
     confidence_score: Optional[ConfidenceScore] = None
+    archive_result: Optional[ArchiveResult] = None
+    archived_at: Optional[datetime] = None
     
     def __post_init__(self) -> None:
         """Validate worksheet data after initialization."""
@@ -294,6 +299,117 @@ class LoggingConfig:
         return getattr(logging, self.level)
 
 
+class ArchiveError(Exception):
+    """Exception raised for archiving-related errors.
+    
+    This exception is raised when file archiving operations fail,
+    such as permission errors, disk space issues, or file system problems.
+    
+    Attributes:
+        message: Error message describing what went wrong
+        file_path: Path to the file that caused the error (if applicable)
+        error_type: Category of error (permission, filesystem, configuration)
+    """
+    
+    def __init__(
+        self, 
+        message: str, 
+        file_path: Optional[Path] = None,
+        error_type: str = "general"
+    ):
+        super().__init__(message)
+        self.message = message
+        self.file_path = file_path
+        self.error_type = error_type
+    
+    def __str__(self) -> str:
+        if self.file_path:
+            return f"ArchiveError[{self.error_type}]: {self.message} (File: {self.file_path})"
+        return f"ArchiveError[{self.error_type}]: {self.message}"
+
+
+@dataclass 
+class ArchiveConfig:
+    """Configuration for file archiving behavior.
+    
+    Attributes:
+        enabled: Whether archiving is enabled
+        archive_folder_name: Name of archive subfolder to create
+        timestamp_format: Format string for conflict resolution timestamps
+        handle_conflicts: Whether to handle filename conflicts with timestamps
+        preserve_structure: Whether to maintain directory structure in archives
+    """
+    enabled: bool = True
+    archive_folder_name: str = "archive"
+    timestamp_format: str = "%Y%m%d_%H%M%S"
+    handle_conflicts: bool = True
+    preserve_structure: bool = True
+    
+    def __post_init__(self) -> None:
+        """Validate archive configuration after initialization."""
+        if not self.archive_folder_name.strip():
+            raise ValueError("archive_folder_name cannot be empty")
+        
+        if not self.timestamp_format.strip():
+            raise ValueError("timestamp_format cannot be empty")
+        
+        # Test timestamp format validity
+        try:
+            datetime.now().strftime(self.timestamp_format)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid timestamp_format: {e}")
+
+
+@dataclass
+class ArchiveResult:
+    """Result container for archive operations.
+    
+    Attributes:
+        success: Whether the archive operation succeeded
+        source_path: Original path of the file
+        archive_path: Path where the file was archived (if successful)
+        timestamp_used: Timestamp suffix used for conflict resolution
+        error_message: Error message if operation failed
+        operation_time: Time taken for the archive operation in seconds
+    """
+    success: bool
+    source_path: Path
+    archive_path: Optional[Path] = None
+    timestamp_used: Optional[str] = None
+    error_message: Optional[str] = None
+    operation_time: float = 0.0
+    
+    def __post_init__(self) -> None:
+        """Validate archive result after initialization."""
+        if not isinstance(self.source_path, Path):
+            self.source_path = Path(self.source_path)
+        
+        if self.archive_path is not None and not isinstance(self.archive_path, Path):
+            self.archive_path = Path(self.archive_path)
+        
+        if self.operation_time < 0:
+            raise ValueError("operation_time cannot be negative")
+    
+    def was_successful(self) -> bool:
+        """Check if the archive operation was successful."""
+        return self.success
+    
+    def get_error_details(self) -> Dict[str, Any]:
+        """Get detailed error information.
+        
+        Returns:
+            Dictionary containing error details
+        """
+        return {
+            "success": self.success,
+            "source_path": str(self.source_path),
+            "archive_path": str(self.archive_path) if self.archive_path else None,
+            "error_message": self.error_message,
+            "timestamp_used": self.timestamp_used,
+            "operation_time": self.operation_time
+        }
+
+
 @dataclass
 class Config:
     """Main configuration for Excel-to-CSV converter.
@@ -306,6 +422,7 @@ class Config:
         logging: Logging configuration
         retry_settings: Retry configuration
         output_config: Output generation configuration
+        archive_config: File archiving configuration
         max_concurrent: Maximum concurrent processing operations
         max_file_size_mb: Maximum file size in MB to process
     """
@@ -316,6 +433,7 @@ class Config:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     retry_settings: RetryConfig = field(default_factory=RetryConfig)
     output_config: OutputConfig = field(default_factory=OutputConfig)
+    archive_config: ArchiveConfig = field(default_factory=ArchiveConfig)
     max_concurrent: int = 5
     max_file_size_mb: int = 100
     
