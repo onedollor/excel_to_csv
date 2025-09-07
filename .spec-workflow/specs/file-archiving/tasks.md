@@ -57,7 +57,7 @@
   - _Leverage: existing pipeline structure, component initialization patterns_
   - _Requirements: 1.1, 2.1_
 
-- [ ] 7. Add archiving logging and error handling in src/excel_to_csv/excel_to_csv_converter.py
+- [x] 7. Add archiving logging and error handling in src/excel_to_csv/excel_to_csv_converter.py
   - File: src/excel_to_csv/excel_to_csv_converter.py (continue from task 6)
   - Add comprehensive logging for archive operations (INFO, ERROR, WARNING)
   - Implement graceful fallback when archiving fails
@@ -66,7 +66,7 @@
   - _Leverage: existing logging infrastructure, statistics patterns_
   - _Requirements: 1.3, 3.1, 3.2_
 
-- [ ] 8. Update configuration files in config/default.yaml
+- [x] 8. Update configuration files in config/default.yaml
   - File: config/default.yaml (modify existing)
   - Add archiving section with default settings
   - Set archiving enabled: false by default for backward compatibility
@@ -75,7 +75,7 @@
   - _Leverage: existing YAML structure and commenting patterns_
   - _Requirements: 2.1, 2.2_
 
-- [ ] 9. Create integration tests in tests/integration/test_archiving_integration.py
+- [-] 9. Create integration tests in tests/integration/test_archiving_integration.py
   - File: tests/integration/test_archiving_integration.py (new)
   - Test full end-to-end archiving workflow with real files
   - Test archiving with different configuration options

@@ -38,6 +38,8 @@ class ProcessingStats:
     worksheets_accepted: int = 0
     csv_files_generated: int = 0
     processing_errors: int = 0
+    files_archived: int = 0
+    archive_failures: int = 0
 
 
 class ExcelToCSVConverter:
@@ -353,17 +355,26 @@ class ExcelToCSVConverter:
                     )
                     
                     if archive_result.success:
-                        self.logger.info(f"Successfully archived: {file_path} -> {archive_result.archive_path}")
+                        self.stats.files_archived += 1
+                        self.logger.info(
+                            f"Successfully archived: {file_path} -> {archive_result.archive_path} "
+                            f"(took {archive_result.operation_time:.3f}s)"
+                        )
                         # Update worksheet data with archive information
                         for worksheet in worksheets:
                             worksheet.archive_result = archive_result
                             worksheet.archived_at = archive_result.timestamp_used
                     else:
                         archive_success = False
-                        self.logger.warning(f"Archiving failed for {file_path}: {archive_result.error_message}")
+                        self.stats.archive_failures += 1
+                        self.logger.warning(
+                            f"Archiving failed for {file_path}: {archive_result.error_message} "
+                            f"(attempted for {archive_result.operation_time:.3f}s)"
+                        )
                         
                 except Exception as e:
                     archive_success = False
+                    self.stats.archive_failures += 1
                     self.logger.error(f"Unexpected error during archiving of {file_path}: {e}", exc_info=True)
             
             # Log completion summary
@@ -395,6 +406,16 @@ class ExcelToCSVConverter:
         self.logger.info(f"CSV files generated: {self.stats.csv_files_generated}")
         self.logger.info(f"Processing errors: {self.stats.processing_errors}")
         
+        # Archiving statistics (only show if archiving is enabled)
+        if self.config.archive_config.enabled:
+            self.logger.info(f"Files archived: {self.stats.files_archived}")
+            self.logger.info(f"Archive failures: {self.stats.archive_failures}")
+            
+            total_archive_attempts = self.stats.files_archived + self.stats.archive_failures
+            if total_archive_attempts > 0:
+                archive_success_rate = (self.stats.files_archived / total_archive_attempts) * 100
+                self.logger.info(f"Archive success rate: {archive_success_rate:.1f}%")
+        
         if self.stats.worksheets_analyzed > 0:
             acceptance_rate = (self.stats.worksheets_accepted / self.stats.worksheets_analyzed) * 100
             self.logger.info(f"Acceptance rate: {acceptance_rate:.1f}%")
@@ -419,12 +440,19 @@ class ExcelToCSVConverter:
             'worksheets_accepted': self.stats.worksheets_accepted,
             'csv_files_generated': self.stats.csv_files_generated,
             'processing_errors': self.stats.processing_errors,
+            'files_archived': self.stats.files_archived,
+            'archive_failures': self.stats.archive_failures,
             'failed_files': dict(self.failed_files),
             'is_running': self.is_running,
         }
         
         if self.stats.worksheets_analyzed > 0:
             stats['acceptance_rate'] = (self.stats.worksheets_accepted / self.stats.worksheets_analyzed) * 100
+        
+        # Add archive success rate if archiving is enabled
+        total_archive_attempts = self.stats.files_archived + self.stats.archive_failures
+        if self.config.archive_config.enabled and total_archive_attempts > 0:
+            stats['archive_success_rate'] = (self.stats.files_archived / total_archive_attempts) * 100
         
         if self.file_monitor:
             stats['monitor'] = self.file_monitor.get_statistics()
