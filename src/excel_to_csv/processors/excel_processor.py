@@ -352,7 +352,10 @@ class ExcelProcessor:
             
             # Try to detect date columns
             try:
-                pd.to_datetime(sample_data, errors='raise', infer_datetime_format=True)
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    pd.to_datetime(sample_data, errors='raise')
                 date_columns.append(col)
                 continue
             except (ValueError, TypeError):

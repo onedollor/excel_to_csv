@@ -33,7 +33,14 @@
       "Bash(python:*)",
       "Bash(sed:*)",
       "Bash(find:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/archiving/ tests/config/test_config_manager.py::TestGlobalConfigManager::test_archiving_configuration_loading -v)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -c \"from excel_to_csv.models.data_models import ArchiveResult, ArchiveConfig, ArchiveError; print(''Import successful'')\")",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -c \"from excel_to_csv.archiving.archive_manager import ArchiveManager; from excel_to_csv.models.data_models import ArchiveResult; print(''Archiving imports successful'')\")",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -c \"import sys; sys.path.insert(0, ''src''); from excel_to_csv.models.data_models import ArchiveResult; print(''Direct import successful'')\")",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/archiving/test_archive_manager.py::TestArchiveManager::test_init -v --no-cov)",
+      "Bash(pgrep:*)",
+      "Bash(pkill:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

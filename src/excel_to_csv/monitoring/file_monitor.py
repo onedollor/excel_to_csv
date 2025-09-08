@@ -61,8 +61,9 @@ class ExcelFileHandler(FileSystemEventHandler):
         self._debounce_thread = threading.Thread(target=self._process_pending_files, daemon=True)
         self._debounce_thread.start()
         
-        # Track processed files to avoid duplicates
-        self._processed_files: Set[Path] = set()
+        # Track processed files with their modification times to avoid duplicates
+        # Dict mapping file path to last processed modification time
+        self._processed_files: dict[Path, float] = {}
         self._processed_lock = threading.Lock()
     
     def on_created(self, event: FileSystemEvent) -> None:
@@ -156,19 +157,31 @@ class ExcelFileHandler(FileSystemEventHandler):
                 self.logger.debug(f"Path is not a file: {file_path}")
                 return
             
-            # Avoid processing same file multiple times
+            # Check file modification time to avoid processing unchanged files
+            try:
+                current_mtime = file_path.stat().st_mtime
+            except OSError:
+                self.logger.warning(f"Cannot get file stats: {file_path}")
+                return
+            
+            # Avoid processing same file multiple times (unless modified)
             with self._processed_lock:
                 if file_path in self._processed_files:
-                    self.logger.debug(f"File already processed: {file_path}")
-                    return
-                self._processed_files.add(file_path)
+                    last_processed_mtime = self._processed_files[file_path]
+                    if current_mtime <= last_processed_mtime:
+                        self.logger.debug(f"File already processed and unchanged: {file_path} (mtime: {current_mtime})")
+                        return
+                    else:
+                        self.logger.info(f"File modified since last processing: {file_path} (old: {last_processed_mtime}, new: {current_mtime})")
+                
+                self._processed_files[file_path] = current_mtime
             
             # Check if file is accessible (not locked)
             if not self._is_file_accessible(file_path):
                 self.logger.warning(f"File is locked or inaccessible: {file_path}")
-                # Remove from processed set so we can retry later
+                # Remove from processed dict so we can retry later
                 with self._processed_lock:
-                    self._processed_files.discard(file_path)
+                    self._processed_files.pop(file_path, None)
                 return
             
             self.logger.info(f"Processing Excel file: {file_path}")
@@ -176,9 +189,9 @@ class ExcelFileHandler(FileSystemEventHandler):
             
         except Exception as e:
             self.logger.error(f"Error processing file {file_path}: {e}", exc_info=True)
-            # Remove from processed set so we can retry later
+            # Remove from processed dict so we can retry later
             with self._processed_lock:
-                self._processed_files.discard(file_path)
+                self._processed_files.pop(file_path, None)
     
     def _is_file_accessible(self, file_path: Path) -> bool:
         """Check if file is accessible for reading.

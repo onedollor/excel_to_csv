@@ -407,12 +407,17 @@ class CSVGenerator:
                     continue
                 
                 # Try to convert to datetime
-                date_series = pd.to_datetime(sample_data, errors='coerce', infer_datetime_format=True)
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    date_series = pd.to_datetime(sample_data, errors='coerce')
                 valid_dates = date_series.dropna()
                 
                 # If most sample values are dates, format the entire column
                 if len(valid_dates) > len(sample_data) * 0.8:  # 80% threshold
-                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", UserWarning)
+                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
                     df[col] = df[col].fillna('')  # Replace NaT with empty string
                     
                     self.logger.debug(f"Formatted date column: {col}")
