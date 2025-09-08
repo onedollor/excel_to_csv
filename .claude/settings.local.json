@@ -40,7 +40,9 @@
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -c \"import sys; sys.path.insert(0, ''src''); from excel_to_csv.models.data_models import ArchiveResult; print(''Direct import successful'')\")",
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/archiving/test_archive_manager.py::TestArchiveManager::test_init -v --no-cov)",
       "Bash(pgrep:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/ --cov=excel_to_csv --cov-report=term-missing --cov-fail-under=90)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/ tests/generators/ tests/processors/ --cov=excel_to_csv --cov-report=term-missing --cov-report=html:htmlcov --no-cov-fail)"
     ]
   },
   "enableAllProjectMcpServers": true,
