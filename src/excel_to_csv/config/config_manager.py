@@ -252,6 +252,7 @@ class ConfigManager:
             f"{self.ENV_PREFIX}ARCHIVE_FOLDER_NAME": ["archiving", "archive_folder_name"],
             f"{self.ENV_PREFIX}ARCHIVE_TIMESTAMP_FORMAT": ["archiving", "timestamp_format"],
             f"{self.ENV_PREFIX}ARCHIVE_HANDLE_CONFLICTS": ["archiving", "handle_conflicts"],
+            f"{self.ENV_PREFIX}ARCHIVE_PRESERVE_STRUCTURE": ["archiving", "preserve_structure"],
         }
         
         # Apply environment overrides

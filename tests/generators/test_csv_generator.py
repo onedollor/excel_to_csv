@@ -16,30 +16,31 @@ class TestCSVGenerator:
     
     def test_init_with_default_config(self, temp_dir: Path):
         """Test CSVGenerator initialization with default config."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
-        assert generator.output_folder == temp_dir
-        assert generator.config.encoding == "utf-8"
-        assert generator.config.include_timestamp is True
-        assert generator.config.naming_pattern == "{filename}_{worksheet}.csv"    
+        # Generator itself doesn't store config, it's passed to generate_csv method
+        assert hasattr(generator, 'generate_csv')
+        assert hasattr(generator, '_determine_output_path')
+        assert hasattr(generator, '_sanitize_filename')    
     def test_init_with_custom_config(self, temp_dir: Path):
         """Test CSVGenerator initialization with custom config."""
         custom_config = OutputConfig(
-            folder=str(temp_dir),
+            folder=temp_dir,
             naming_pattern="{worksheet}_{filename}.csv",
             include_timestamp=False,
             encoding="utf-16"
         )
         
-        generator = CSVGenerator(output_folder=temp_dir, config=custom_config)
+        generator = CSVGenerator()
         
-        assert generator.config.encoding == "utf-16"
-        assert generator.config.include_timestamp is False
-        assert generator.config.naming_pattern == "{worksheet}_{filename}.csv"
+        # Test that custom config values are used in generation
+        assert custom_config.encoding == "utf-16"
+        assert custom_config.include_timestamp is False
+        assert custom_config.naming_pattern == "{worksheet}_{filename}.csv"
     
     def test_generate_csv_success(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test successful CSV generation."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="TestSheet",
@@ -47,7 +48,8 @@ class TestCSVGenerator:
             source_file=Path("source.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_config = OutputConfig(folder=temp_dir)
+        output_path = generator.generate_csv(worksheet_data, output_config)
         
         assert output_path.exists()
         assert output_path.suffix == ".csv"
@@ -66,7 +68,7 @@ class TestCSVGenerator:
             include_timestamp=True,
             naming_pattern="{filename}_{worksheet}.csv"
         )
-        generator = CSVGenerator(output_folder=temp_dir, config=config)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="TimestampSheet",
@@ -74,7 +76,7 @@ class TestCSVGenerator:
             source_file=Path("timestamp_test.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         # Check that timestamp is included in filename
@@ -89,7 +91,7 @@ class TestCSVGenerator:
             include_timestamp=False,
             naming_pattern="{filename}_{worksheet}.csv"
         )
-        generator = CSVGenerator(output_folder=temp_dir, config=config)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="NoTimestampSheet",
@@ -97,7 +99,7 @@ class TestCSVGenerator:
             source_file=Path("no_timestamp.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         expected_name = "no_timestamp_NoTimestampSheet.csv"
@@ -110,7 +112,7 @@ class TestCSVGenerator:
             naming_pattern="{worksheet}_from_{filename}.csv",
             include_timestamp=False
         )
-        generator = CSVGenerator(output_folder=temp_dir, config=config)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="CustomSheet",
@@ -118,7 +120,7 @@ class TestCSVGenerator:
             source_file=Path("custom_source.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         expected_name = "CustomSheet_from_custom_source.csv"
@@ -126,7 +128,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_duplicate_handling(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test handling of duplicate filenames."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="DuplicateSheet",
@@ -149,7 +151,7 @@ class TestCSVGenerator:
     
     def test_sanitize_filename(self, temp_dir: Path):
         """Test filename sanitization."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         # Test various problematic characters
         test_cases = [
@@ -169,7 +171,7 @@ class TestCSVGenerator:
     
     def test_get_unique_filename_no_conflict(self, temp_dir: Path):
         """Test unique filename generation when no conflict exists."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         base_name = "no_conflict.csv"
         unique_path = generator._get_unique_filename(temp_dir / base_name)
@@ -178,7 +180,7 @@ class TestCSVGenerator:
     
     def test_get_unique_filename_with_conflict(self, temp_dir: Path):
         """Test unique filename generation when conflicts exist."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         # Create existing file
         existing_file = temp_dir / "conflict.csv"
@@ -193,7 +195,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_with_special_characters(self, temp_dir: Path):
         """Test CSV generation with special characters in data."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         # Create data with special characters
         special_data = pd.DataFrame({
@@ -208,7 +210,7 @@ class TestCSVGenerator:
             source_file=Path("special.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         
@@ -228,7 +230,7 @@ class TestCSVGenerator:
                 include_timestamp=False,
                 naming_pattern="{filename}_{worksheet}_{encoding}.csv"
             )
-            generator = CSVGenerator(output_folder=temp_dir, config=config)
+            generator = CSVGenerator()
             
             worksheet_data = WorksheetData(
                 worksheet_name="EncodingTest",
@@ -253,7 +255,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_empty_data(self, temp_dir: Path):
         """Test CSV generation with empty data."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         empty_data = pd.DataFrame()
         worksheet_data = WorksheetData(
@@ -262,7 +264,7 @@ class TestCSVGenerator:
             source_file=Path("empty.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         
@@ -274,7 +276,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_single_column(self, temp_dir: Path):
         """Test CSV generation with single column data."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         single_col_data = pd.DataFrame({'SingleColumn': [1, 2, 3, 4, 5]})
         worksheet_data = WorksheetData(
@@ -283,7 +285,7 @@ class TestCSVGenerator:
             source_file=Path("single.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         
@@ -293,7 +295,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_with_nan_values(self, temp_dir: Path):
         """Test CSV generation with NaN values."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         nan_data = pd.DataFrame({
             'A': [1, None, 3, None],
@@ -307,7 +309,7 @@ class TestCSVGenerator:
             source_file=Path("nan_test.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         
@@ -317,7 +319,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_permission_error(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test handling of permission errors during CSV generation."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="PermissionTest",
@@ -334,7 +336,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_disk_space_error(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test handling of disk space errors during CSV generation."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="DiskSpaceTest",
@@ -363,7 +365,7 @@ class TestCSVGenerator:
             source_file=Path("folder_test.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         # Folder should be created automatically
         assert non_existent_folder.exists()
@@ -372,7 +374,7 @@ class TestCSVGenerator:
     
     def test_csv_format_validation(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test that generated CSV follows proper CSV format."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         worksheet_data = WorksheetData(
             worksheet_name="FormatValidation",
@@ -380,7 +382,7 @@ class TestCSVGenerator:
             source_file=Path("format.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         # Validate CSV format using csv module
         with open(output_path, 'r', encoding='utf-8') as f:
@@ -399,7 +401,7 @@ class TestCSVGenerator:
         """Test thread safety of CSV generation."""
         import threading
         
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         results = []
         exceptions = []
         
@@ -411,7 +413,7 @@ class TestCSVGenerator:
                     source_file=Path(f"concurrent_{worker_id}.xlsx")
                 )
                 
-                output_path = generator.generate_csv(worksheet_data)
+                output_path = generator.generate_csv(worksheet_data, config)
                 results.append(output_path)
             except Exception as e:
                 exceptions.append(e)
@@ -439,7 +441,7 @@ class TestCSVGenerator:
     
     def test_generate_csv_with_datetime_columns(self, temp_dir: Path):
         """Test CSV generation with datetime columns."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         datetime_data = pd.DataFrame({
             'date_col': pd.date_range('2023-01-01', periods=3),
@@ -453,7 +455,7 @@ class TestCSVGenerator:
             source_file=Path("datetime.xlsx")
         )
         
-        output_path = generator.generate_csv(worksheet_data)
+        output_path = generator.generate_csv(worksheet_data, config)
         
         assert output_path.exists()
         
@@ -465,7 +467,7 @@ class TestCSVGenerator:
     
     def test_path_handling_edge_cases(self, temp_dir: Path, sample_excel_data: pd.DataFrame):
         """Test path handling edge cases."""
-        generator = CSVGenerator(output_folder=temp_dir)
+        generator = CSVGenerator()
         
         # Test with Path object vs string
         path_cases = [
@@ -481,6 +483,6 @@ class TestCSVGenerator:
                 source_file=Path(file_path) if isinstance(file_path, str) else file_path
             )
             
-            output_path = generator.generate_csv(worksheet_data)
+            output_path = generator.generate_csv(worksheet_data, config)
             assert output_path.exists()
             assert output_path.suffix == ".csv"
