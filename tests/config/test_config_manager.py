@@ -355,3 +355,92 @@ class TestGlobalConfigManager:
         config = config_manager.load_config(sample_config_file)
         assert isinstance(config, Config)
         assert config.confidence_threshold == 0.9
+    
+    def test_archiving_configuration_loading(self):
+        """Test loading archiving configuration from defaults."""
+        config_manager = ConfigManager()
+        config = config_manager.load_config(use_env_overrides=False)
+        
+        assert hasattr(config, 'archive_config')
+        assert config.archive_config is not None
+        assert hasattr(config.archive_config, 'enabled')
+        assert hasattr(config.archive_config, 'archive_folder_name')
+        assert hasattr(config.archive_config, 'timestamp_format')
+        assert hasattr(config.archive_config, 'handle_conflicts')
+        assert hasattr(config.archive_config, 'preserve_structure')
+        
+        # Default archiving should be disabled
+        assert config.archive_config.enabled is False
+        assert config.archive_config.archive_folder_name == "archive"
+        assert config.archive_config.timestamp_format == "%Y%m%d_%H%M%S"
+        assert config.archive_config.handle_conflicts is True
+        assert config.archive_config.preserve_structure is True
+    
+    def test_archiving_environment_variable_overrides(self, env_override):
+        """Test archiving environment variable overrides."""
+        config_manager = ConfigManager()
+        
+        # Set archiving environment overrides
+        env_override.set("EXCEL_TO_CSV_ARCHIVE_ENABLED", "true")
+        env_override.set("EXCEL_TO_CSV_ARCHIVE_FOLDER_NAME", "processed")
+        env_override.set("EXCEL_TO_CSV_ARCHIVE_TIMESTAMP_FORMAT", "%Y-%m-%d_%H%M%S")
+        env_override.set("EXCEL_TO_CSV_ARCHIVE_HANDLE_CONFLICTS", "false")
+        env_override.set("EXCEL_TO_CSV_ARCHIVE_PRESERVE_STRUCTURE", "false")
+        
+        config = config_manager.load_config(use_env_overrides=True)
+        
+        assert config.archive_config.enabled is True
+        assert config.archive_config.archive_folder_name == "processed"
+        assert config.archive_config.timestamp_format == "%Y-%m-%d_%H%M%S"
+        assert config.archive_config.handle_conflicts is False
+        assert config.archive_config.preserve_structure is False
+    
+    def test_archiving_yaml_configuration(self, temp_dir: Path):
+        """Test loading archiving configuration from YAML file."""
+        config_manager = ConfigManager()
+        
+        config_dict = {
+            "archiving": {
+                "enabled": True,
+                "archive_folder_name": "backup",
+                "timestamp_format": "%Y%m%d",
+                "handle_conflicts": False,
+                "preserve_structure": False
+            }
+        }
+        
+        config_file = temp_dir / "archiving_test.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump(config_dict, f)
+        
+        config = config_manager.load_config(config_file, use_env_overrides=False)
+        
+        assert config.archive_config.enabled is True
+        assert config.archive_config.archive_folder_name == "backup"
+        assert config.archive_config.timestamp_format == "%Y%m%d"
+        assert config.archive_config.handle_conflicts is False
+        assert config.archive_config.preserve_structure is False
+    
+    def test_archiving_config_validation(self, temp_dir: Path):
+        """Test archiving configuration validation."""
+        config_manager = ConfigManager()
+        
+        # Test valid archiving config
+        valid_config_dict = {
+            "archiving": {
+                "enabled": True,
+                "archive_folder_name": "valid_archive",
+                "timestamp_format": "%Y%m%d_%H%M%S",
+                "handle_conflicts": True,
+                "preserve_structure": True
+            }
+        }
+        
+        valid_config_file = temp_dir / "valid_archiving.yaml"
+        with open(valid_config_file, 'w') as f:
+            yaml.dump(valid_config_dict, f)
+        
+        config = config_manager.load_config(valid_config_file, use_env_overrides=False)
+        assert isinstance(config, Config)
+        assert config.archive_config.enabled is True
+        assert config.archive_config.archive_folder_name == "valid_archive"

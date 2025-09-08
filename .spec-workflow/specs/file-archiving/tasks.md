@@ -75,7 +75,7 @@
   - _Leverage: existing YAML structure and commenting patterns_
   - _Requirements: 2.1, 2.2_
 
-- [-] 9. Create integration tests in tests/integration/test_archiving_integration.py
+- [x] 9. Create integration tests in tests/integration/test_archiving_integration.py
   - File: tests/integration/test_archiving_integration.py (new)
   - Test full end-to-end archiving workflow with real files
   - Test archiving with different configuration options
@@ -85,7 +85,7 @@
   - _Note: This is a NEW test file, existing integration tests remain unchanged_
   - _Requirements: All requirements_
 
-- [ ] 10. Update configuration tests in tests/config/test_config_manager.py
+- [x] 10. Update configuration tests in tests/config/test_config_manager.py
   - File: tests/config/test_config_manager.py (modify existing)
   - Add tests for archiving configuration loading and validation
   - Test environment variable overrides for archiving settings
@@ -95,7 +95,7 @@
   - _Note: Only ADD new archiving tests, existing config tests remain unchanged_
   - _Requirements: 2.1, 2.2_
 
-- [ ] 11. Add performance tests in tests/performance/test_archiving_performance.py
+- [x] 11. Add performance tests in tests/performance/test_archiving_performance.py
   - File: tests/performance/test_archiving_performance.py (new)
   - Create tests/performance/ directory if it doesn't exist
   - Measure processing time impact of archiving operations
@@ -106,7 +106,7 @@
   - _Note: This is a NEW test file, existing performance tests (if any) remain unchanged_
   - _Requirements: Performance requirements from design_
 
-- [ ] 12. Final integration and cleanup
+- [x] 12. Final integration and cleanup
   - Files: Various files (review and cleanup)
   - Review all code for consistency with project patterns
   - Update docstrings and type hints for new archiving components
