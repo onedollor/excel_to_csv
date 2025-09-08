@@ -123,7 +123,7 @@ class ArchiveConfig:
         handle_conflicts: Whether to handle filename conflicts with timestamps
         preserve_structure: Whether to maintain directory structure in archives
     """
-    enabled: bool = True
+    enabled: bool = False
     archive_folder_name: str = "archive"
     timestamp_format: str = "%Y%m%d_%H%M%S"
     handle_conflicts: bool = True

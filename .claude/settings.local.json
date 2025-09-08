@@ -42,7 +42,13 @@
       "Bash(pgrep:*)",
       "Bash(pkill:*)",
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/ --cov=excel_to_csv --cov-report=term-missing --cov-fail-under=90)",
-      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/ tests/generators/ tests/processors/ --cov=excel_to_csv --cov-report=term-missing --cov-report=html:htmlcov --no-cov-fail)"
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/ tests/generators/ tests/processors/ --cov=excel_to_csv --cov-report=term-missing --cov-report=html:htmlcov --no-cov-fail)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/ --cov=excel_to_csv --cov-report=term-missing --no-cov-fail)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/ --cov=excel_to_csv --cov-report=term-missing)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/ tests/generators/ tests/processors/ --cov=excel_to_csv --cov-report=term-missing --cov-report=html:htmlcov)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/test_config_manager.py::TestGlobalConfigManager::test_archiving_configuration_loading -v)",
+      "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3:*)",
+      "Bash(env)"
     ]
   },
   "enableAllProjectMcpServers": true,
