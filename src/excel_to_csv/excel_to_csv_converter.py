@@ -382,28 +382,43 @@ class ExcelToCSVConverter:
                             
                             self.logger.info(
                                 f"Worksheet '{worksheet.worksheet_name}' accepted "
-                                f"(confidence: {confidence_score.overall_score:.3f})",
+                                f"(confidence: {confidence_score.overall_score:.3f}, "
+                                f"data_density: {confidence_score.data_density:.3f}, "
+                                f"header_quality: {confidence_score.header_quality:.3f}, "
+                                f"consistency: {confidence_score.consistency_score:.3f})",
                                 extra={
                                     "structured": {
                                         "operation": "worksheet_analysis",
                                         "worksheet_name": worksheet.worksheet_name,
                                         "decision": "accepted",
                                         "confidence_score": confidence_score.overall_score,
-                                        "threshold": self.config.confidence_threshold
+                                        "data_density_score": confidence_score.data_density,
+                                        "header_quality_score": confidence_score.header_quality,
+                                        "consistency_score": confidence_score.consistency_score,
+                                        "threshold": self.config.confidence_threshold,
+                                        "rejection_reasons": confidence_score.reasons
                                     }
                                 }
                             )
                         else:
                             self.logger.info(
                                 f"Worksheet '{worksheet.worksheet_name}' rejected "
-                                f"(confidence: {confidence_score.overall_score:.3f})",
+                                f"(confidence: {confidence_score.overall_score:.3f}, "
+                                f"data_density: {confidence_score.data_density:.3f}, "
+                                f"header_quality: {confidence_score.header_quality:.3f}, "
+                                f"consistency: {confidence_score.consistency_score:.3f}, "
+                                f"reasons: {', '.join(confidence_score.reasons)})",
                                 extra={
                                     "structured": {
                                         "operation": "worksheet_analysis",
                                         "worksheet_name": worksheet.worksheet_name,
                                         "decision": "rejected",
                                         "confidence_score": confidence_score.overall_score,
-                                        "threshold": self.config.confidence_threshold
+                                        "data_density_score": confidence_score.data_density,
+                                        "header_quality_score": confidence_score.header_quality,
+                                        "consistency_score": confidence_score.consistency_score,
+                                        "threshold": self.config.confidence_threshold,
+                                        "rejection_reasons": confidence_score.reasons
                                     }
                                 }
                             )

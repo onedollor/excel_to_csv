@@ -167,3 +167,4 @@ cython_debug/
 *.log
 *.xls
 *.xlsx
+*.gz

@@ -50,7 +50,10 @@
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3:*)",
       "Bash(env)",
       "Bash(PYTHONPATH=src python3 test_comprehensive_conversion.py)",
-      "Bash(PYTHONPATH=src python3 create_additional_test_files.py)"
+      "Bash(PYTHONPATH=src python3 create_additional_test_files.py)",
+      "Bash(PYTHONPATH=src python3 test_main_workflow.py)",
+      "Bash(chown:*)",
+      "Bash(zcat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

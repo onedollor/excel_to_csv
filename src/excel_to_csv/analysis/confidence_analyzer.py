@@ -72,7 +72,7 @@ class ConfidenceAnalyzer:
         threshold: float = 0.8,
         weights: Optional[Dict[str, float]] = None,
         min_rows: int = 5,
-        min_columns: int = 2,
+        min_columns: int = 1,
         max_empty_percentage: float = 0.3
     ):
         """Initialize confidence analyzer.
