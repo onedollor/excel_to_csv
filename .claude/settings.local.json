@@ -49,7 +49,8 @@
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/test_config_manager.py::TestGlobalConfigManager::test_archiving_configuration_loading -v)",
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3:*)",
       "Bash(env)",
-      "Bash(PYTHONPATH=src python3 test_comprehensive_conversion.py)"
+      "Bash(PYTHONPATH=src python3 test_comprehensive_conversion.py)",
+      "Bash(PYTHONPATH=src python3 create_additional_test_files.py)"
     ]
   },
   "enableAllProjectMcpServers": true,

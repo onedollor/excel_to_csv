@@ -128,7 +128,7 @@ class ComprehensiveTestRunner:
                     try:
                         confidence_result = self.confidence_analyzer.analyze_worksheet(worksheet)
                         
-                        confidence_score = confidence_result.overall_confidence
+                        confidence_score = confidence_result.overall_score
                         test_result['confidence_scores'][worksheet_name] = confidence_score
                         
                         self.logger.info(
@@ -138,47 +138,48 @@ class ComprehensiveTestRunner:
                                     "operation": "worksheet_confidence_analysis",
                                     "worksheet_name": worksheet_name,
                                     "confidence_score": confidence_score,
-                                    "is_suitable": confidence_result.is_suitable_for_csv,
-                                    "data_rows": confidence_result.analysis_metrics.get('data_rows', 0),
-                                    "data_columns": confidence_result.analysis_metrics.get('data_columns', 0)
+                                    "is_suitable": confidence_result.is_confident,
+                                    "data_rows": worksheet.row_count,
+                                    "data_columns": worksheet.column_count
                                 }
                             }
                         )
                         
                         # Step 3: Convert suitable worksheets
-                        if confidence_result.is_suitable_for_csv:
+                        if confidence_result.is_confident:
                             self.logger.info(f"Converting worksheet '{worksheet_name}' to CSV...")
                             
                             # Generate CSV
-                            csv_result = self.csv_generator.generate_csv(
-                                worksheet,
-                                output_dir,
-                                OutputConfig()
-                            )
-                            
-                            if csv_result.success:
+                            try:
+                                output_config = OutputConfig()
+                                output_config.folder = output_dir  # Set output directory
+                                output_path = self.csv_generator.generate_csv(
+                                    worksheet,
+                                    output_config
+                                )
+                                
                                 test_result['worksheets_converted'] += 1
-                                test_result['output_files'].append(str(csv_result.output_path))
+                                test_result['output_files'].append(str(output_path))
                                 
                                 self.logger.info(
-                                    f"Successfully converted '{worksheet_name}' to {csv_result.output_path.name}",
+                                    f"Successfully converted '{worksheet_name}' to {output_path.name}",
                                     extra={
                                         "structured": {
                                             "operation": "csv_conversion_success",
                                             "worksheet_name": worksheet_name,
-                                            "output_file": str(csv_result.output_path),
-                                            "rows_written": csv_result.rows_written,
-                                            "columns_written": csv_result.columns_written,
-                                            "file_size": csv_result.output_path.stat().st_size
+                                            "output_file": str(output_path),
+                                            "rows_written": worksheet.row_count,
+                                            "columns_written": worksheet.column_count,
+                                            "file_size": output_path.stat().st_size if output_path.exists() else 0
                                         }
                                     }
                                 )
-                            else:
-                                error_msg = f"Failed to convert '{worksheet_name}': {csv_result.error_message}"
+                            except Exception as csv_error:
+                                error_msg = f"Failed to convert '{worksheet_name}': {str(csv_error)}"
                                 test_result['errors'].append(error_msg)
-                                self.logger.error(error_msg)
+                                self.logger.error(error_msg, exc_info=True)
                         else:
-                            warning_msg = f"Worksheet '{worksheet_name}' not suitable for CSV conversion (confidence: {confidence_score:.2f})"
+                            warning_msg = f"Worksheet '{worksheet_name}' not suitable for CSV conversion (confidence: {confidence_score:.2f}, threshold: {confidence_result.threshold})"
                             test_result['warnings'].append(warning_msg)
                             self.logger.warning(warning_msg)
                             
