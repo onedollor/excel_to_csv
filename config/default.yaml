@@ -36,10 +36,10 @@ confidence:
   min_rows: 5
   
   # Minimum number of columns required for analysis
-  min_columns: 2
+  min_columns: 1
   
   # Maximum percentage of empty cells allowed
-  max_empty_percentage: 0.3
+  max_empty_percentage: 0.8
 
 # CSV output settings
 output:
@@ -143,7 +143,7 @@ archiving:
   # Whether to automatically archive Excel files after processing
   # When enabled, processed Excel files are moved to an "archive" subfolder
   # within their original directory
-  enabled: false
+  enabled: true
   
   # Name of the archive subfolder to create
   # This folder will be created within each monitored directory

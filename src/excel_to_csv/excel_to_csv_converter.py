@@ -27,6 +27,10 @@ from excel_to_csv.generators.csv_generator import CSVGenerator, CSVGenerationErr
 from excel_to_csv.monitoring.file_monitor import FileMonitor, FileMonitorError
 from excel_to_csv.archiving.archive_manager import ArchiveManager
 from excel_to_csv.utils.logger import setup_logging, get_processing_logger, shutdown_logging
+from excel_to_csv.utils.logging_config import setup_enhanced_logging, get_processing_logger as get_enhanced_logger
+from excel_to_csv.utils.correlation import CorrelationContext
+from excel_to_csv.utils.logging_decorators import log_operation, operation_context
+from excel_to_csv.utils.metrics import get_metrics_collector
 
 
 @dataclass
@@ -189,8 +193,19 @@ class ExcelToCSVConverter:
         Args:
             file_path: Path to detected Excel file
         """
-        self.logger.info(f"File detected: {file_path}")
-        self.processing_queue.put(file_path)
+        with CorrelationContext() as correlation_id:
+            self.logger.info(
+                f"File detected: {file_path}",
+                extra={
+                    "structured": {
+                        "operation": "file_detected",
+                        "file_path": str(file_path),
+                        "file_size": file_path.stat().st_size if file_path.exists() else 0,
+                        "correlation_id": correlation_id
+                    }
+                }
+            )
+            self.processing_queue.put(file_path)
     
     def _process_queue_worker(self) -> None:
         """Worker thread for processing queued files."""
@@ -229,6 +244,7 @@ class ExcelToCSVConverter:
             except Exception as e:
                 self.logger.error(f"Stats reporter error: {e}", exc_info=True)
     
+    @log_operation("process_file")
     def process_file(self, file_path: Path) -> bool:
         """Process a single Excel file (CLI mode).
         
@@ -238,8 +254,9 @@ class ExcelToCSVConverter:
         Returns:
             True if processing was successful
         """
-        self.logger.info(f"Processing single file: {file_path}")
-        return self._process_file_with_retry(file_path)
+        with CorrelationContext() as correlation_id:
+            self.logger.info(f"Processing single file: {file_path}")
+            return self._process_file_with_retry(file_path)
     
     def _process_file_with_retry(self, file_path: Path) -> bool:
         """Process file with retry logic.
@@ -253,38 +270,53 @@ class ExcelToCSVConverter:
         retry_count = self.failed_files.get(file_path, 0)
         max_retries = self.config.retry_settings.max_attempts
         
-        if retry_count >= max_retries:
-            self.logger.error(f"Max retries exceeded for file: {file_path}")
-            return False
-        
-        try:
-            success = self._process_file_pipeline(file_path)
+        with operation_context(
+            "process_file_with_retry",
+            self.logger,
+            file_path=str(file_path),
+            retry_count=retry_count,
+            max_retries=max_retries
+        ) as metrics:
             
-            if success:
-                # Remove from failed files on success
-                self.failed_files.pop(file_path, None)
-                self.stats.files_processed += 1
-            else:
-                # Increment retry count
-                self.failed_files[file_path] = retry_count + 1
-                self.stats.files_failed += 1
+            if retry_count >= max_retries:
+                self.logger.error(f"Max retries exceeded for file: {file_path}")
+                metrics.add_metadata("max_retries_exceeded", True)
+                return False
+            
+            try:
+                success = self._process_file_pipeline(file_path)
                 
-                # Schedule retry if not at max
-                if retry_count + 1 < max_retries:
-                    retry_delay = self.config.retry_settings.get_delay(retry_count)
-                    self.logger.info(f"Scheduling retry for {file_path} in {retry_delay}s")
+                if success:
+                    # Remove from failed files on success
+                    self.failed_files.pop(file_path, None)
+                    self.stats.files_processed += 1
+                    metrics.add_metadata("result", "success")
+                    self.logger.info(f"File processed successfully: {file_path}")
+                else:
+                    # Increment retry count
+                    self.failed_files[file_path] = retry_count + 1
+                    self.stats.files_failed += 1
+                    metrics.add_metadata("result", "failed")
                     
-                    # Schedule retry (in service mode)
-                    if self.is_running:
-                        threading.Timer(retry_delay, lambda: self.processing_queue.put(file_path)).start()
-            
-            return success
-            
-        except Exception as e:
-            self.logger.error(f"Unexpected error processing {file_path}: {e}", exc_info=True)
-            self.failed_files[file_path] = retry_count + 1
-            self.stats.processing_errors += 1
-            return False
+                    # Schedule retry if not at max
+                    if retry_count + 1 < max_retries:
+                        retry_delay = self.config.retry_settings.get_delay(retry_count)
+                        metrics.add_metadata("retry_delay_seconds", retry_delay)
+                        self.logger.info(f"Scheduling retry for {file_path} in {retry_delay}s")
+                        
+                        # Schedule retry (in service mode)
+                        if self.is_running:
+                            threading.Timer(retry_delay, lambda: self.processing_queue.put(file_path)).start()
+                
+                return success
+                
+            except Exception as e:
+                self.logger.error(f"Unexpected error processing {file_path}: {e}", exc_info=True)
+                self.failed_files[file_path] = retry_count + 1
+                self.stats.processing_errors += 1
+                metrics.add_metadata("error", str(e))
+                metrics.add_metadata("result", "exception")
+                return False
     
     def _process_file_pipeline(self, file_path: Path) -> bool:
         """Execute the full processing pipeline for a file.
@@ -295,106 +327,304 @@ class ExcelToCSVConverter:
         Returns:
             True if processing was successful
         """
-        try:
-            # Step 1: Process Excel file and extract worksheets
-            worksheets = self.excel_processor.process_file(file_path)
+        with operation_context(
+            "process_file_pipeline",
+            self.logger,
+            file_path=str(file_path),
+            file_size=file_path.stat().st_size if file_path.exists() else 0
+        ) as metrics:
             
-            if not worksheets:
-                self.logger.info(f"No worksheets found in file: {file_path}")
-                return True  # Not an error, just empty file
-            
-            # Step 2: Analyze each worksheet for confidence
-            qualified_worksheets = []
-            
-            for worksheet in worksheets:
-                self.stats.worksheets_analyzed += 1
+            try:
+                # Step 1: Process Excel file and extract worksheets
+                self.logger.info(f"Step 1: Processing Excel file {file_path}")
+                with operation_context("excel_processing", self.logger, file_path=str(file_path)):
+                    worksheets = self.excel_processor.process_file(file_path)
                 
-                confidence_score = self.confidence_analyzer.analyze_worksheet(worksheet)
-                worksheet.confidence_score = confidence_score
+                worksheet_count = len(worksheets) if worksheets else 0
+                metrics.add_metadata("worksheets_found", worksheet_count)
                 
-                if confidence_score.is_confident:
-                    qualified_worksheets.append(worksheet)
-                    self.stats.worksheets_accepted += 1
+                if not worksheets:
+                    self.logger.info(f"No worksheets found in file: {file_path}")
+                    metrics.add_metadata("result", "empty_file")
+                    return True  # Not an error, just empty file
+                
+                self.logger.info(f"Found {worksheet_count} worksheets in {file_path}")
+                
+                # Step 2: Analyze each worksheet for confidence
+                self.logger.info(f"Step 2: Analyzing {worksheet_count} worksheets for confidence")
+                qualified_worksheets = []
+                worksheet_decisions = {}
+                
+                for worksheet in worksheets:
+                    self.stats.worksheets_analyzed += 1
                     
-                    self.logger.info(
-                        f"Worksheet '{worksheet.worksheet_name}' accepted "
-                        f"(confidence: {confidence_score.overall_score:.3f})"
-                    )
-                else:
-                    self.logger.info(
-                        f"Worksheet '{worksheet.worksheet_name}' rejected "
-                        f"(confidence: {confidence_score.overall_score:.3f})"
-                    )
-            
-            # Step 3: Generate CSV files for qualified worksheets
-            csv_files_created = 0
-            
-            for worksheet in qualified_worksheets:
-                try:
-                    output_path = self.csv_generator.generate_csv(
-                        worksheet, 
-                        self.config.output_config
-                    )
-                    
-                    csv_files_created += 1
-                    self.stats.csv_files_generated += 1
-                    
-                    self.logger.info(f"Generated CSV: {output_path}")
-                    
-                except CSVGenerationError as e:
-                    self.logger.error(f"Failed to generate CSV for worksheet "
-                                    f"'{worksheet.worksheet_name}': {e}")
-            
-            # Step 4: Archive source file if CSV generation was successful and archiving is enabled
-            archive_success = True
-            if (csv_files_created > 0 or len(qualified_worksheets) == 0) and self.config.archive_config.enabled:
-                try:
-                    archive_result = self.archive_manager.archive_file(
-                        file_path, 
-                        self.config.archive_config
-                    )
-                    
-                    if archive_result.success:
-                        self.stats.files_archived += 1
-                        self.logger.info(
-                            f"Successfully archived: {file_path} -> {archive_result.archive_path} "
-                            f"(took {archive_result.operation_time:.3f}s)"
-                        )
-                        # Update worksheet data with archive information
-                        for worksheet in worksheets:
-                            worksheet.archive_result = archive_result
-                            worksheet.archived_at = archive_result.timestamp_used
-                    else:
-                        archive_success = False
-                        self.stats.archive_failures += 1
-                        self.logger.warning(
-                            f"Archiving failed for {file_path}: {archive_result.error_message} "
-                            f"(attempted for {archive_result.operation_time:.3f}s)"
-                        )
+                    with operation_context(
+                        "confidence_analysis",
+                        self.logger,
+                        worksheet_name=worksheet.worksheet_name,
+                        file_path=str(file_path)
+                    ) as analysis_metrics:
                         
-                except Exception as e:
-                    archive_success = False
-                    self.stats.archive_failures += 1
-                    self.logger.error(f"Unexpected error during archiving of {file_path}: {e}", exc_info=True)
-            
-            # Log completion summary
-            archive_status = ""
-            if self.config.archive_config.enabled:
-                archive_status = " (archived)" if archive_success else " (archive failed)"
-            
-            self.logger.info(
-                f"Completed processing {file_path}: "
-                f"{csv_files_created}/{len(worksheets)} worksheets converted{archive_status}"
-            )
-            
-            return csv_files_created > 0 or len(qualified_worksheets) == 0
-            
-        except ExcelProcessingError as e:
-            self.logger.error(f"Excel processing failed for {file_path}: {e}")
-            return False
-        except Exception as e:
-            self.logger.error(f"Pipeline error for {file_path}: {e}", exc_info=True)
-            return False
+                        confidence_score = self.confidence_analyzer.analyze_worksheet(worksheet)
+                        worksheet.confidence_score = confidence_score
+                        
+                        analysis_metrics.add_metadata("confidence_score", confidence_score.overall_score)
+                        analysis_metrics.add_metadata("is_confident", confidence_score.is_confident)
+                        
+                        worksheet_decisions[worksheet.worksheet_name] = {
+                            "confidence": confidence_score.overall_score,
+                            "accepted": confidence_score.is_confident
+                        }
+                        
+                        if confidence_score.is_confident:
+                            qualified_worksheets.append(worksheet)
+                            self.stats.worksheets_accepted += 1
+                            
+                            self.logger.info(
+                                f"Worksheet '{worksheet.worksheet_name}' accepted "
+                                f"(confidence: {confidence_score.overall_score:.3f}, "
+                                f"data_density: {confidence_score.data_density:.3f}, "
+                                f"header_quality: {confidence_score.header_quality:.3f}, "
+                                f"consistency: {confidence_score.consistency_score:.3f})",
+                                extra={
+                                    "structured": {
+                                        "operation": "worksheet_analysis",
+                                        "worksheet_name": worksheet.worksheet_name,
+                                        "decision": "accepted",
+                                        "confidence_score": confidence_score.overall_score,
+                                        "data_density_score": confidence_score.data_density,
+                                        "header_quality_score": confidence_score.header_quality,
+                                        "consistency_score": confidence_score.consistency_score,
+                                        "threshold": self.config.confidence_threshold,
+                                        "rejection_reasons": confidence_score.reasons
+                                    }
+                                }
+                            )
+                        else:
+                            self.logger.info(
+                                f"Worksheet '{worksheet.worksheet_name}' rejected "
+                                f"(confidence: {confidence_score.overall_score:.3f}, "
+                                f"data_density: {confidence_score.data_density:.3f}, "
+                                f"header_quality: {confidence_score.header_quality:.3f}, "
+                                f"consistency: {confidence_score.consistency_score:.3f}, "
+                                f"reasons: {', '.join(confidence_score.reasons)})",
+                                extra={
+                                    "structured": {
+                                        "operation": "worksheet_analysis",
+                                        "worksheet_name": worksheet.worksheet_name,
+                                        "decision": "rejected",
+                                        "confidence_score": confidence_score.overall_score,
+                                        "data_density_score": confidence_score.data_density,
+                                        "header_quality_score": confidence_score.header_quality,
+                                        "consistency_score": confidence_score.consistency_score,
+                                        "threshold": self.config.confidence_threshold,
+                                        "rejection_reasons": confidence_score.reasons
+                                    }
+                                }
+                            )
+                
+                qualified_count = len(qualified_worksheets)
+                metrics.add_metadata("worksheets_qualified", qualified_count)
+                metrics.add_metadata("qualification_rate", qualified_count / worksheet_count if worksheet_count > 0 else 0)
+                metrics.add_metadata("worksheet_decisions", worksheet_decisions)
+                
+                self.logger.info(
+                    f"Worksheet analysis complete: {qualified_count}/{worksheet_count} qualified",
+                    extra={
+                        "structured": {
+                            "operation": "analysis_summary",
+                            "total_worksheets": worksheet_count,
+                            "qualified_worksheets": qualified_count,
+                            "qualification_rate": qualified_count / worksheet_count if worksheet_count > 0 else 0
+                        }
+                    }
+                )
+                
+                # Step 3: Generate CSV files for qualified worksheets
+                self.logger.info(f"Step 3: Generating CSV files for {qualified_count} qualified worksheets")
+                csv_files_created = 0
+                csv_generation_errors = []
+                
+                for worksheet in qualified_worksheets:
+                    with operation_context(
+                        "csv_generation",
+                        self.logger,
+                        worksheet_name=worksheet.worksheet_name,
+                        file_path=str(file_path)
+                    ) as csv_metrics:
+                        try:
+                            output_path = self.csv_generator.generate_csv(
+                                worksheet, 
+                                self.config.output_config
+                            )
+                            
+                            csv_files_created += 1
+                            self.stats.csv_files_generated += 1
+                            csv_metrics.add_metadata("output_path", str(output_path))
+                            csv_metrics.add_metadata("result", "success")
+                            
+                            self.logger.info(
+                                f"Generated CSV: {output_path}",
+                                extra={
+                                    "structured": {
+                                        "operation": "csv_generation",
+                                        "worksheet_name": worksheet.worksheet_name,
+                                        "output_path": str(output_path),
+                                        "result": "success"
+                                    }
+                                }
+                            )
+                            
+                        except CSVGenerationError as e:
+                            error_details = {
+                                "worksheet_name": worksheet.worksheet_name,
+                                "error": str(e),
+                                "error_type": type(e).__name__
+                            }
+                            csv_generation_errors.append(error_details)
+                            csv_metrics.add_metadata("result", "failed")
+                            csv_metrics.add_metadata("error", str(e))
+                            
+                            self.logger.error(
+                                f"Failed to generate CSV for worksheet '{worksheet.worksheet_name}': {e}",
+                                extra={
+                                    "structured": {
+                                        "operation": "csv_generation",
+                                        "worksheet_name": worksheet.worksheet_name,
+                                        "result": "error",
+                                        "error_type": type(e).__name__,
+                                        "error_message": str(e)
+                                    }
+                                }
+                            )
+                
+                metrics.add_metadata("csv_files_created", csv_files_created)
+                metrics.add_metadata("csv_generation_errors", csv_generation_errors)
+                metrics.add_metadata("csv_success_rate", csv_files_created / qualified_count if qualified_count > 0 else 1)
+                
+                # Step 4: Archive source file if conditions are met
+                archive_success = True
+                archive_attempted = False
+                
+                if (csv_files_created > 0 or len(qualified_worksheets) == 0) and self.config.archive_config.enabled:
+                    self.logger.info(f"Step 4: Archiving source file {file_path}")
+                    archive_attempted = True
+                    
+                    with operation_context(
+                        "file_archival",
+                        self.logger,
+                        file_path=str(file_path)
+                    ) as archive_metrics:
+                        try:
+                            archive_result = self.archive_manager.archive_file(
+                                file_path, 
+                                self.config.archive_config
+                            )
+                            
+                            archive_metrics.add_metadata("archive_result", archive_result.success)
+                            
+                            if archive_result.success:
+                                self.stats.files_archived += 1
+                                archive_metrics.add_metadata("archive_path", str(archive_result.archive_path))
+                                archive_metrics.add_metadata("operation_time", archive_result.operation_time)
+                                
+                                self.logger.info(
+                                    f"Successfully archived: {file_path} -> {archive_result.archive_path} "
+                                    f"(took {archive_result.operation_time:.3f}s)",
+                                    extra={
+                                        "structured": {
+                                            "operation": "file_archival",
+                                            "source_path": str(file_path),
+                                            "archive_path": str(archive_result.archive_path),
+                                            "operation_time": archive_result.operation_time,
+                                            "result": "success"
+                                        }
+                                    }
+                                )
+                                
+                                # Update worksheet data with archive information
+                                for worksheet in worksheets:
+                                    worksheet.archive_result = archive_result
+                                    worksheet.archived_at = archive_result.operation_time
+                            else:
+                                archive_success = False
+                                self.stats.archive_failures += 1
+                                archive_metrics.add_metadata("error_message", archive_result.error_message)
+                                
+                                self.logger.warning(
+                                    f"Archiving failed for {file_path}: {archive_result.error_message} "
+                                    f"(attempted for {archive_result.operation_time:.3f}s)",
+                                    extra={
+                                        "structured": {
+                                            "operation": "file_archival",
+                                            "source_path": str(file_path),
+                                            "result": "failed",
+                                            "error_message": archive_result.error_message,
+                                            "operation_time": archive_result.operation_time
+                                        }
+                                    }
+                                )
+                                
+                        except Exception as e:
+                            archive_success = False
+                            self.stats.archive_failures += 1
+                            archive_metrics.add_metadata("error", str(e))
+                            
+                            self.logger.error(
+                                f"Unexpected error during archiving of {file_path}: {e}",
+                                exc_info=True,
+                                extra={
+                                    "structured": {
+                                        "operation": "file_archival",
+                                        "source_path": str(file_path),
+                                        "result": "exception",
+                                        "error_type": type(e).__name__,
+                                        "error_message": str(e)
+                                    }
+                                }
+                            )
+                
+                metrics.add_metadata("archive_attempted", archive_attempted)
+                metrics.add_metadata("archive_success", archive_success)
+                
+                # Final processing result
+                processing_success = csv_files_created > 0 or len(qualified_worksheets) == 0
+                metrics.add_metadata("processing_success", processing_success)
+                
+                # Log completion summary
+                archive_status = ""
+                if self.config.archive_config.enabled:
+                    archive_status = " (archived)" if archive_success else " (archive failed)"
+                
+                self.logger.info(
+                    f"Completed processing {file_path}: "
+                    f"{csv_files_created}/{len(worksheets)} worksheets converted{archive_status}",
+                    extra={
+                        "structured": {
+                            "operation": "processing_summary",
+                            "source_file": str(file_path),
+                            "total_worksheets": worksheet_count,
+                            "qualified_worksheets": qualified_count,
+                            "csv_files_created": csv_files_created,
+                            "archive_attempted": archive_attempted,
+                            "archive_success": archive_success,
+                            "processing_success": processing_success
+                        }
+                    }
+                )
+                
+                return processing_success
+                
+            except ExcelProcessingError as e:
+                metrics.add_metadata("error_type", "ExcelProcessingError")
+                metrics.add_metadata("error_message", str(e))
+                self.logger.error(f"Excel processing failed for {file_path}: {e}")
+                return False
+            except Exception as e:
+                metrics.add_metadata("error_type", type(e).__name__)
+                metrics.add_metadata("error_message", str(e))
+                self.logger.error(f"Pipeline error for {file_path}: {e}", exc_info=True)
+                return False
     
     def _log_statistics(self) -> None:
         """Log current processing statistics."""

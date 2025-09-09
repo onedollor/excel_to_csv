@@ -20,44 +20,44 @@ class TestExcelFileHandler:
         
         handler = ExcelFileHandler(patterns, callback, debounce_seconds=2.0)
         
-        assert handler.patterns == patterns
+        assert handler.file_patterns == patterns
         assert handler.callback == callback
         assert handler.debounce_seconds == 2.0
-        assert isinstance(handler.debounce_timers, dict)
-        assert hasattr(handler, '_lock')
+        assert isinstance(handler._pending_files, dict)
+        assert hasattr(handler, '_pending_lock')
     
-    def test_matches_pattern_xlsx(self):
+    def test_matches_patterns_xlsx(self):
         """Test pattern matching for .xlsx files."""
         callback = Mock()
         handler = ExcelFileHandler(["*.xlsx"], callback)
         
-        assert handler._matches_pattern("test.xlsx")
-        assert handler._matches_pattern("data.XLSX")  # Case insensitive
-        assert not handler._matches_pattern("test.xls")
-        assert not handler._matches_pattern("test.txt")
-        assert not handler._matches_pattern("test")
+        assert handler._matches_patterns(Path("test.xlsx"))
+        assert handler._matches_patterns("data.XLSX")  # Case insensitive
+        assert not handler._matches_patterns("test.xls")
+        assert not handler._matches_patterns(Path("test.txt"))
+        assert not handler._matches_patterns("test")
     
-    def test_matches_pattern_multiple(self):
+    def test_matches_patterns_multiple(self):
         """Test pattern matching for multiple patterns."""
         callback = Mock()
         handler = ExcelFileHandler(["*.xlsx", "*.xls"], callback)
         
-        assert handler._matches_pattern("test.xlsx")
-        assert handler._matches_pattern("test.xls")
-        assert handler._matches_pattern("data.XLSX")
-        assert handler._matches_pattern("data.XLS")
-        assert not handler._matches_pattern("test.txt")
-        assert not handler._matches_pattern("test.csv")
+        assert handler._matches_patterns(Path("test.xlsx"))
+        assert handler._matches_patterns(Path("test.xls"))
+        assert handler._matches_patterns("data.XLSX")
+        assert handler._matches_patterns("data.XLS")
+        assert not handler._matches_patterns(Path("test.txt"))
+        assert not handler._matches_patterns("test.csv")
     
-    def test_matches_pattern_custom_patterns(self):
+    def test_matches_patterns_custom_patterns(self):
         """Test pattern matching with custom patterns."""
         callback = Mock()
         handler = ExcelFileHandler(["*.xlsm", "data_*.xlsx"], callback)
         
-        assert handler._matches_pattern("test.xlsm")
-        assert handler._matches_pattern("data_test.xlsx")
-        assert not handler._matches_pattern("test.xlsx")
-        assert not handler._matches_pattern("other_test.xlsx")
+        assert handler._matches_patterns(Path("test.xlsm"))
+        assert handler._matches_patterns("data_test.xlsx")
+        assert not handler._matches_patterns("test.xlsx")
+        assert not handler._matches_patterns("other_test.xlsx")
     
     def test_on_created(self, temp_dir: Path):
         """Test file creation event handling."""
@@ -77,7 +77,7 @@ class TestExcelFileHandler:
         time.sleep(0.2)
         
         # Callback should be called after debounce
-        assert test_file in handler.debounce_timers
+        assert test_file in handler._pending_files
     
     def test_on_modified(self, temp_dir: Path):
         """Test file modification event handling."""
@@ -97,7 +97,7 @@ class TestExcelFileHandler:
         time.sleep(0.2)
         
         # Should be tracked for debouncing
-        assert test_file in handler.debounce_timers
+        assert test_file in handler._pending_files
     
     def test_debounce_mechanism(self, temp_dir: Path):
         """Test debouncing mechanism prevents multiple rapid calls."""
@@ -116,7 +116,7 @@ class TestExcelFileHandler:
         handler.on_created(event)
         
         # Should only create one timer
-        assert len(handler.debounce_timers) == 1
+        assert len(handler._pending_files) == 1
         
         # Wait for debounce to complete
         time.sleep(0.3)
@@ -138,7 +138,7 @@ class TestExcelFileHandler:
         handler.on_created(event)
         
         # Should not create timer for non-matching file
-        assert len(handler.debounce_timers) == 0
+        assert len(handler._pending_files) == 0
         callback.assert_not_called()
     
     def test_ignore_directories(self, temp_dir: Path):
@@ -155,7 +155,7 @@ class TestExcelFileHandler:
         handler.on_created(event)
         
         # Should ignore directory events
-        assert len(handler.debounce_timers) == 0
+        assert len(handler._pending_files) == 0
         callback.assert_not_called()
     
     def test_concurrent_timer_handling(self, temp_dir: Path):
@@ -181,7 +181,7 @@ class TestExcelFileHandler:
             thread.join()
         
         # Should have 5 different timers
-        assert len(handler.debounce_timers) == 5
+        assert len(handler._pending_files) == 5
         
         # Wait for all debounces to complete
         time.sleep(0.2)

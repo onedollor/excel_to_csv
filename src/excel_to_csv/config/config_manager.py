@@ -132,7 +132,7 @@ class ConfigManager:
             "follow_symlinks": False,
         },
         "archiving": {
-            "enabled": False,  # Disabled by default for backward compatibility
+            "enabled": True,  # Enabled by default for automatic archival
             "archive_folder_name": "archive",
             "timestamp_format": "%Y%m%d_%H%M%S",
             "handle_conflicts": True,
@@ -382,7 +382,7 @@ class ConfigManager:
         )
         
         archive_config = ArchiveConfig(
-            enabled=archiving.get("enabled", False),
+            enabled=archiving.get("enabled", True),
             archive_folder_name=archiving.get("archive_folder_name", "archive"),
             timestamp_format=archiving.get("timestamp_format", "%Y%m%d_%H%M%S"),
             handle_conflicts=archiving.get("handle_conflicts", True),

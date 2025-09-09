@@ -257,6 +257,31 @@ class WorksheetData:
         if self.total_cell_count == 0:
             return 0.0
         return self.non_empty_cell_count / self.total_cell_count
+    
+    @property
+    def has_headers(self) -> bool:
+        """Check if the worksheet likely has headers."""
+        # Simple heuristic: if first row contains mostly strings and subsequent rows contain mixed types
+        if self.data.empty or len(self.data) < 2:
+            return False
+        
+        first_row = self.data.iloc[0]
+        second_row = self.data.iloc[1] if len(self.data) > 1 else None
+        
+        # Count string values in first row
+        first_row_strings = sum(1 for val in first_row if isinstance(val, str) and val.strip())
+        
+        # If most of first row is strings and we have a second row with different types, likely headers
+        if first_row_strings >= len(first_row) * 0.5 and second_row is not None:
+            second_row_strings = sum(1 for val in second_row if isinstance(val, str) and val.strip())
+            return second_row_strings < first_row_strings
+        
+        return False
+    
+    @property
+    def column_types(self) -> Dict[str, str]:
+        """Get data types for each column."""
+        return {str(col): str(dtype) for col, dtype in self.data.dtypes.items()}
 
 
 @dataclass

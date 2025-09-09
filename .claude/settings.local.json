@@ -48,7 +48,12 @@
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/ tests/generators/ tests/processors/ --cov=excel_to_csv --cov-report=term-missing --cov-report=html:htmlcov)",
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3 -m pytest tests/config/test_config_manager.py::TestGlobalConfigManager::test_archiving_configuration_loading -v)",
       "Bash(PYTHONPATH=/home/lin/repo/excel_to_csv/src python3:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(PYTHONPATH=src python3 test_comprehensive_conversion.py)",
+      "Bash(PYTHONPATH=src python3 create_additional_test_files.py)",
+      "Bash(PYTHONPATH=src python3 test_main_workflow.py)",
+      "Bash(chown:*)",
+      "Bash(zcat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
