@@ -104,12 +104,12 @@ class ComprehensiveTestRunner:
             try:
                 # Step 1: Process Excel file
                 self.logger.info(f"Processing Excel file: {file_name}")
-                excel_data = self.excel_processor.process_file(file_path)
+                worksheets = self.excel_processor.process_file(file_path)
                 
-                metrics.add_metadata("excel_worksheets", len(excel_data.worksheets))
-                test_result['worksheets_processed'] = len(excel_data.worksheets)
+                metrics.add_metadata("excel_worksheets", len(worksheets))
+                test_result['worksheets_processed'] = len(worksheets)
                 
-                if not excel_data.worksheets:
+                if not worksheets:
                     warning_msg = f"No worksheets found or processed in {file_name}"
                     test_result['warnings'].append(warning_msg)
                     self.logger.warning(warning_msg)
@@ -119,7 +119,7 @@ class ComprehensiveTestRunner:
                 output_dir = self.log_dir / 'output' / file_name.replace('.xlsx', '')
                 output_dir.mkdir(parents=True, exist_ok=True)
                 
-                for worksheet in excel_data.worksheets:
+                for worksheet in worksheets:
                     worksheet_name = worksheet.worksheet_name
                     
                     self.logger.info(f"Analyzing worksheet: {worksheet_name}")
