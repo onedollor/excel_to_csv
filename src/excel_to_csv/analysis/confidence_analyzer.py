@@ -278,6 +278,18 @@ class ConfidenceAnalyzer:
             
             df = worksheet_data.data
             
+            # Use 20% sampling for large datasets (>1k rows) to improve performance
+            sample_size = len(df)
+            if len(df) > 1000:
+                sample_size = int(len(df) * 0.2)
+                df = df.sample(n=sample_size, random_state=42)
+                metrics.add_metadata("sampling_applied", True)
+                metrics.add_metadata("sample_size", sample_size)
+                metrics.add_metadata("original_size", len(worksheet_data.data))
+                self.logger.debug(f"Applied 20% sampling for large dataset: {len(worksheet_data.data)} -> {sample_size} rows")
+            else:
+                metrics.add_metadata("sampling_applied", False)
+            
             # Calculate basic density
             density = worksheet_data.data_density
             
@@ -307,7 +319,7 @@ class ConfidenceAnalyzer:
                 reasons.append(f"Too many empty columns: {col_empty_ratio:.3f}")
                 density *= (1.0 - col_empty_ratio * 0.5)
             
-            # Check for data clustering (good sign for tables)
+            # Check for data clustering (good sign for tables) - simplified efficient method
             clustering_bonus = self._analyze_data_clustering(df)
             if clustering_bonus > 0:
                 reasons.append("Data shows good clustering pattern")
@@ -319,7 +331,7 @@ class ConfidenceAnalyzer:
             metrics.add_metadata("final_density_score", final_score)
             metrics.add_metadata("density_adjustments", len([r for r in reasons if "density" in r.lower()]))
             
-            self.logger.debug(
+            self.logger.info(
                 f"Data density analysis: {worksheet_data.data_density:.3f} -> {final_score:.3f} for '{worksheet_data.worksheet_name}'",
                 extra={
                     "structured": {
@@ -336,7 +348,7 @@ class ConfidenceAnalyzer:
             return final_score
     
     def _analyze_data_clustering(self, df: pd.DataFrame) -> float:
-        """Analyze data clustering patterns.
+        """Analyze data clustering patterns using efficient method.
         
         Args:
             df: DataFrame to analyze
@@ -345,25 +357,34 @@ class ConfidenceAnalyzer:
             Clustering bonus (0.0 to 0.2)
         """
         try:
-            # Look for rectangular blocks of data (typical of tables)
+            # Simple and efficient clustering analysis
             non_null_mask = df.notnull()
-            
-            # Find the largest rectangular region of non-null data
-            max_rect_area = 0
             rows, cols = df.shape
             
-            for i in range(rows):
-                for j in range(cols):
-                    if non_null_mask.iloc[i, j]:
-                        # Find largest rectangle starting at (i, j)
-                        area = self._largest_rectangle_from_point(non_null_mask, i, j)
-                        max_rect_area = max(max_rect_area, area)
+            if rows == 0 or cols == 0:
+                return 0.0
             
-            # Calculate bonus based on how much of the data forms a rectangle
-            total_non_null = non_null_mask.sum().sum()
-            if total_non_null > 0:
-                rectangularity = max_rect_area / total_non_null
-                return min(0.2, rectangularity * 0.3)
+            # Calculate data distribution patterns efficiently
+            # 1. Check if data forms a contiguous block (good for tables)
+            row_coverage = (non_null_mask.sum(axis=1) > 0).sum() / rows  # Rows with any data
+            col_coverage = (non_null_mask.sum(axis=0) > 0).sum() / cols  # Columns with any data
+            
+            # 2. Check for consistent row patterns (table-like structure)
+            row_densities = non_null_mask.sum(axis=1) / cols  # Density per row
+            row_consistency = 1.0 - row_densities.std() if len(row_densities) > 1 else 1.0
+            
+            # 3. Bonus calculation based on table-like characteristics
+            coverage_score = (row_coverage + col_coverage) / 2
+            consistency_score = max(0.0, row_consistency)
+            
+            # Tables typically have good coverage and consistency
+            clustering_score = (coverage_score * 0.6 + consistency_score * 0.4)
+            
+            # Apply bonus if data shows table-like patterns
+            if clustering_score > 0.7:
+                return min(0.2, clustering_score * 0.25)
+            elif clustering_score > 0.5:
+                return min(0.1, clustering_score * 0.15)
             
         except Exception:
             # If clustering analysis fails, don't penalize
@@ -371,43 +392,6 @@ class ConfidenceAnalyzer:
         
         return 0.0
     
-    def _largest_rectangle_from_point(
-        self, 
-        mask: pd.DataFrame, 
-        start_row: int, 
-        start_col: int
-    ) -> int:
-        """Find largest rectangle of True values starting from a point.
-        
-        Args:
-            mask: Boolean DataFrame
-            start_row: Starting row index
-            start_col: Starting column index
-            
-        Returns:
-            Area of largest rectangle
-        """
-        rows, cols = mask.shape
-        max_area = 0
-        
-        # Try different rectangle heights
-        for end_row in range(start_row, rows):
-            if not mask.iloc[end_row, start_col]:
-                break
-            
-            # Find width for this height
-            width = 0
-            for end_col in range(start_col, cols):
-                # Check if entire column slice is True
-                if mask.iloc[start_row:end_row+1, end_col].all():
-                    width += 1
-                else:
-                    break
-            
-            area = (end_row - start_row + 1) * width
-            max_area = max(max_area, area)
-        
-        return max_area
     
     @log_operation("calculate_header_quality_score", log_args=False)
     def _calculate_header_quality_score(
