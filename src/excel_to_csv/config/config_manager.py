@@ -14,6 +14,7 @@ import yaml
 from excel_to_csv.models.data_models import (
     ArchiveConfig,
     Config,
+    ConfidenceConfig,
     LoggingConfig,
     OutputConfig,
     RetryConfig,
@@ -381,6 +382,18 @@ class ConfigManager:
             structured_enabled=logging_config.get("structured", {}).get("enabled", False),
         )
         
+        confidence_config = ConfidenceConfig(
+            threshold=confidence.get("threshold", 0.8),
+            weights=confidence.get("weights", {
+                'data_density': 0.4,
+                'header_quality': 0.3,
+                'consistency': 0.3
+            }),
+            min_rows=confidence.get("min_rows", 5),
+            min_columns=confidence.get("min_columns", 1),
+            max_empty_percentage=confidence.get("max_empty_percentage", 0.3),
+        )
+        
         archive_config = ArchiveConfig(
             enabled=archiving.get("enabled", True),
             archive_folder_name=archiving.get("archive_folder_name", "archive"),
@@ -393,6 +406,7 @@ class ConfigManager:
         return Config(
             monitored_folders=[Path(folder) for folder in monitoring.get("folders", ["./input"])],
             confidence_threshold=confidence.get("threshold", 0.7),
+            confidence_config=confidence_config,
             output_folder=Path(output["folder"]) if output.get("folder") else None,
             file_patterns=monitoring.get("file_patterns", ["*.xlsx", "*.xls"]),
             logging=logging_config_obj,

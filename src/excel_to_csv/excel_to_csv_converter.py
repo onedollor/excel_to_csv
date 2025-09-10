@@ -85,7 +85,11 @@ class ExcelToCSVConverter:
         )
         
         self.confidence_analyzer = ConfidenceAnalyzer(
-            threshold=self.config.confidence_threshold
+            threshold=self.config.confidence_config.threshold,
+            weights=self.config.confidence_config.weights,
+            min_rows=self.config.confidence_config.min_rows,
+            min_columns=self.config.confidence_config.min_columns,
+            max_empty_percentage=self.config.confidence_config.max_empty_percentage
         )
         
         self.csv_generator = CSVGenerator()
@@ -110,7 +114,7 @@ class ExcelToCSVConverter:
         
         self.logger.info("Excel-to-CSV converter initialized")
         self.logger.info(f"Configuration: {len(self.config.monitored_folders)} folders, "
-                        f"threshold: {self.config.confidence_threshold}, "
+                        f"threshold: {self.config.confidence_config.threshold}, "
                         f"max concurrent: {self.config.max_concurrent}")
     
     def _setup_signal_handlers(self) -> None:
@@ -395,7 +399,7 @@ class ExcelToCSVConverter:
                                         "data_density_score": confidence_score.data_density,
                                         "header_quality_score": confidence_score.header_quality,
                                         "consistency_score": confidence_score.consistency_score,
-                                        "threshold": self.config.confidence_threshold,
+                                        "threshold": self.config.confidence_config.threshold,
                                         "rejection_reasons": confidence_score.reasons
                                     }
                                 }
@@ -417,7 +421,7 @@ class ExcelToCSVConverter:
                                         "data_density_score": confidence_score.data_density,
                                         "header_quality_score": confidence_score.header_quality,
                                         "consistency_score": confidence_score.consistency_score,
-                                        "threshold": self.config.confidence_threshold,
+                                        "threshold": self.config.confidence_config.threshold,
                                         "rejection_reasons": confidence_score.reasons
                                     }
                                 }

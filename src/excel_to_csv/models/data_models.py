@@ -57,7 +57,7 @@ class ConfidenceScore:
     header_quality: float = 0.0
     consistency_score: float = 0.0
     reasons: List[str] = field(default_factory=list)
-    threshold: float = 0.8
+    threshold: float = 0.0
     
     def __post_init__(self) -> None:
         """Validate confidence score after initialization."""
@@ -284,6 +284,23 @@ class WorksheetData:
         return {str(col): str(dtype) for col, dtype in self.data.dtypes.items()}
 
 
+@dataclass 
+class ConfidenceConfig:
+    """Configuration for confidence analysis.
+    
+    Attributes:
+        threshold: Minimum confidence threshold for processing
+        weights: Dictionary of component weights for scoring
+        min_rows: Minimum rows required for analysis
+        min_columns: Minimum columns required for analysis
+        max_empty_percentage: Maximum allowed empty cell percentage
+    """
+    threshold: float
+    weights: Dict[str, float]
+    min_rows: int
+    min_columns: int
+    max_empty_percentage: float
+
 @dataclass
 class OutputConfig:
     """Configuration for CSV output generation.
@@ -452,7 +469,8 @@ class Config:
         max_file_size_mb: Maximum file size in MB to process
     """
     monitored_folders: List[Path]
-    confidence_threshold: float = 0.9
+    confidence_threshold: float
+    confidence_config: ConfidenceConfig
     output_folder: Optional[Path] = None
     file_patterns: List[str] = field(default_factory=lambda: ["*.xlsx", "*.xls"])
     logging: LoggingConfig = field(default_factory=LoggingConfig)
