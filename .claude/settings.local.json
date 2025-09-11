@@ -13,7 +13,9 @@
       "Bash(python3 -m coverage run:*)",
       "Bash(python3 -m pytest tests/processors/test_excel_processor_comprehensive.py -v --tb=short)",
       "Bash(python3 -m pytest tests/test_main_converter_comprehensive.py -v --tb=short)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(python -m pytest --cov=src --cov-report=term-missing --tb=short)",
+      "Bash(python -m pytest --cov=src --cov-report=term-missing --tb=no -q)"
     ],
     "deny": [],
     "ask": []
