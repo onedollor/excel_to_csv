@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(PYTHONPATH=src python3:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(python -m pytest tests/config/test_config_manager_comprehensive.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/config/test_config_manager_comprehensive.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/config/test_config_manager_comprehensive.py -v)",
+      "Bash(python3 -m pytest tests/config/test_config_manager_comprehensive.py --tb=short)",
+      "Bash(python3 -m pytest tests/config/test_config_manager_comprehensive.py -v --cov=src/excel_to_csv/config/config_manager --cov-report=term-missing)",
+      "Bash(python3 -m pytest tests/archiving/test_archive_manager_comprehensive.py -v --tb=short)",
+      "Bash(python3 -m pytest --cov=src/excel_to_csv --cov-report=term-missing --tb=no -q)",
+      "Bash(python3 -m coverage run:*)",
+      "Bash(python3 -m pytest tests/processors/test_excel_processor_comprehensive.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/test_main_converter_comprehensive.py -v --tb=short)",
+      "Bash(python3:*)",
+      "Bash(python -m pytest --cov=src --cov-report=term-missing --tb=short)",
+      "Bash(python -m pytest --cov=src --cov-report=term-missing --tb=no -q)"
     ],
     "deny": [],
     "ask": []

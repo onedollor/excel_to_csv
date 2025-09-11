@@ -216,18 +216,34 @@ class TestConfidenceAnalyzer:
         # Consistency score might vary, but should provide reasoning
         assert len(reasons) >= 0  # May or may not add reasons depending on implementation
     
-    def test_largest_rectangle_from_point(self):
-        """Test rectangular region detection from specific point."""
+    def test_optimized_data_clustering_analysis(self):
+        """Test the optimized data clustering analysis."""
         analyzer = ConfidenceAnalyzer()
         
-        # Create boolean mask for the method
-        mask = pd.DataFrame(np.random.choice([True, False], size=(10, 10)))
+        # Create structured data (should get clustering bonus)
+        structured_data = pd.DataFrame({
+            'col1': [1, 2, 3, 4, 5],
+            'col2': ['A', 'B', 'C', 'D', 'E'],
+            'col3': [10.1, 20.2, 30.3, 40.4, 50.5]
+        })
         
-        # Test the _largest_rectangle_from_point method (returns int, not tuple)
-        result = analyzer._largest_rectangle_from_point(mask, 2, 2)
+        # Test clustering analysis on structured data
+        clustering_score = analyzer._analyze_data_clustering(structured_data)
+        assert isinstance(clustering_score, float)
+        assert 0.0 <= clustering_score <= 0.2  # Max clustering bonus is 0.2
         
-        assert isinstance(result, int)
-        assert result >= 0
+        # Test on sparse data (should get lower score)
+        sparse_data = pd.DataFrame({
+            'col1': [1, None, None, None, None],
+            'col2': [None, 'A', None, None, None], 
+            'col3': [None, None, None, None, 5]
+        })
+        
+        sparse_clustering_score = analyzer._analyze_data_clustering(sparse_data)
+        assert isinstance(sparse_clustering_score, float)
+        assert 0.0 <= sparse_clustering_score <= 0.2
+        # Structured data should typically score higher than sparse data
+        assert clustering_score >= sparse_clustering_score
     
     def test_score_column_consistency(self):
         """Test column consistency scoring."""
@@ -439,3 +455,172 @@ class TestConfidenceAnalyzer:
         
         assert isinstance(confidence, ConfidenceScore)
         assert 0 <= confidence.overall_score <= 1
+    def test_large_dataset_sampling(self, temp_dir: Path):
+        """Test that sampling is applied for large datasets."""
+        analyzer = ConfidenceAnalyzer()
+        
+        # Create large dataset (>1000 rows)
+        import numpy as np
+        np.random.seed(42)
+        large_data = pd.DataFrame({
+            "id": range(1500),
+            "value": np.random.randint(1, 100, 1500),
+            "category": np.random.choice(["A", "B", "C"], 1500)
+        })
+        
+        worksheet_data = WorksheetData(
+            worksheet_name="LargeDataset", 
+            data=large_data,
+            source_file=temp_dir / "large.xlsx"
+        )
+        
+        # Analyze the large dataset
+        confidence = analyzer.analyze_worksheet(worksheet_data)
+        
+        # Verify analysis completes (sampling should make it efficient)
+        assert isinstance(confidence, ConfidenceScore)
+        assert 0 <= confidence.overall_score <= 1
+        
+        # Verify the analysis works and provides reasonable results
+        assert len(confidence.reasons) > 0
+    
+    def test_insufficient_columns_rejection(self, temp_dir: Path):
+        """Test rejection when worksheet has insufficient columns."""
+        # Create analyzer that requires minimum 3 columns
+        analyzer = ConfidenceAnalyzer(min_columns=3)
+        
+        # Create data with only 1 column (insufficient)
+        insufficient_data = pd.DataFrame({'OnlyColumn': [1, 2, 3, 4, 5, 6]})
+        
+        worksheet_data = WorksheetData(
+            worksheet_name="InsufficientColumns",
+            data=insufficient_data,
+            source_file=temp_dir / "insufficient.xlsx"
+        )
+        
+        confidence = analyzer.analyze_worksheet(worksheet_data)
+        
+        # Should be rejected due to insufficient columns
+        assert confidence.overall_score == 0.0
+        assert confidence.is_confident == False
+        assert any("Too few columns" in reason for reason in confidence.reasons)
+        assert "2 < 3" in str(confidence.reasons) or "1 < 3" in str(confidence.reasons)
+    
+    def test_insufficient_rows_rejection(self, temp_dir: Path):
+        """Test rejection when worksheet has insufficient rows."""
+        # Create analyzer that requires minimum 10 rows
+        analyzer = ConfidenceAnalyzer(min_rows=10)
+        
+        # Create data with only 3 rows (insufficient)
+        insufficient_data = pd.DataFrame({
+            'Col1': [1, 2, 3],
+            'Col2': ['A', 'B', 'C']
+        })
+        
+        worksheet_data = WorksheetData(
+            worksheet_name="InsufficientRows",
+            data=insufficient_data,
+            source_file=temp_dir / "insufficient_rows.xlsx"
+        )
+        
+        confidence = analyzer.analyze_worksheet(worksheet_data)
+        
+        # Should be rejected due to insufficient rows
+        assert confidence.overall_score == 0.0
+        assert confidence.is_confident == False
+        assert any("insufficient rows" in reason for reason in confidence.reasons)
+    
+    def test_individual_consistency_methods(self):
+        """Test individual consistency checking methods."""
+        analyzer = ConfidenceAnalyzer()
+        
+        # Test numeric consistency
+        numeric_series = pd.Series([1, 2, 3, 4, 5])
+        numeric_score = analyzer._check_numeric_consistency(numeric_series)
+        assert 0.0 <= numeric_score <= 1.0
+        
+        mixed_series = pd.Series([1, 'text', 3])
+        mixed_score = analyzer._check_numeric_consistency(mixed_series)
+        assert mixed_score < numeric_score  # Should be lower for mixed data
+        
+        # Test date consistency
+        date_series = pd.Series(['2023-01-01', '2023-01-02', '2023-01-03'])
+        date_score = analyzer._check_date_consistency(date_series)
+        assert 0.0 <= date_score <= 1.0
+        
+        # Test categorical consistency
+        cat_series = pd.Series(['A', 'B', 'A', 'C', 'B'])
+        cat_score = analyzer._check_categorical_consistency(cat_series)
+        assert 0.0 <= cat_score <= 1.0
+    
+    def test_header_detection_edge_cases(self, temp_dir: Path):
+        """Test header detection with various edge cases."""
+        analyzer = ConfidenceAnalyzer()
+        
+        # Data with no clear headers
+        no_headers_data = pd.DataFrame([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]
+        ])
+        
+        worksheet_data = WorksheetData(
+            worksheet_name="NoHeaders",
+            data=no_headers_data,
+            source_file=temp_dir / "no_headers.xlsx"
+        )
+        
+        confidence = analyzer.analyze_worksheet(worksheet_data)
+        assert isinstance(confidence, ConfidenceScore)
+        
+        # Data with very clear headers
+        clear_headers_data = pd.DataFrame({
+            'Customer_ID': [1, 2, 3, 4, 5],
+            'Full_Name': ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Brown', 'Charlie Davis'],
+            'Email_Address': ['john@email.com', 'jane@email.com', 'bob@email.com', 'alice@email.com', 'charlie@email.com'],
+            'Purchase_Date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05']
+        })
+        
+        clear_worksheet = WorksheetData(
+            worksheet_name="ClearHeaders",
+            data=clear_headers_data,
+            source_file=temp_dir / "clear_headers.xlsx"
+        )
+        
+        clear_confidence = analyzer.analyze_worksheet(clear_worksheet)
+        assert clear_confidence.header_quality > 0.5  # Should detect good headers
+    
+    def test_clustering_analysis_edge_cases(self):
+        """Test clustering analysis with edge cases."""
+        analyzer = ConfidenceAnalyzer()
+        
+        # Empty DataFrame
+        empty_df = pd.DataFrame()
+        empty_score = analyzer._analyze_data_clustering(empty_df)
+        assert empty_score == 0.0
+        
+        # Single cell DataFrame
+        single_cell_df = pd.DataFrame({'A': [1]})
+        single_score = analyzer._analyze_data_clustering(single_cell_df)
+        assert 0.0 <= single_score <= 0.2
+        
+        # All null DataFrame
+        null_df = pd.DataFrame({'A': [None, None], 'B': [None, None]})
+        null_score = analyzer._analyze_data_clustering(null_df)
+        assert 0.0 <= null_score <= 0.2
+    
+    def test_weights_validation_error(self):
+        """Test error handling for invalid weights."""
+        # Weights that don't sum to 1.0
+        with pytest.raises(ValueError, match="Weights must sum to 1.0"):
+            ConfidenceAnalyzer(weights={'data_density': 0.5, 'header_quality': 0.3, 'consistency': 0.1})
+    
+    def test_threshold_validation_error(self):
+        """Test error handling for invalid threshold."""
+        # Threshold outside valid range
+        with pytest.raises(ValueError, match="Threshold must be between 0.0 and 1.0"):
+            ConfidenceAnalyzer(threshold=1.5)
+        
+        with pytest.raises(ValueError, match="Threshold must be between 0.0 and 1.0"):
+            ConfidenceAnalyzer(threshold=-0.1)
+
