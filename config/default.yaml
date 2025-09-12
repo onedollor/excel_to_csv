@@ -1,0 +1,162 @@
+# Excel-to-CSV Converter Default Configuration
+
+# Folder monitoring settings
+monitoring:
+  # List of directories to monitor for Excel files
+  folders:
+    - "./input"
+    - "./data"
+  
+  # File patterns to match (supports glob patterns)
+  file_patterns:
+    - "*.xlsx"
+    - "*.xls"
+  
+  # Whether to process existing files on startup
+  process_existing: true
+  
+  # Polling interval in seconds for network drives
+  polling_interval: 5
+  
+  # Maximum file size to process (in MB)
+  max_file_size: 100
+
+# Confidence analysis settings
+confidence:
+  # Minimum confidence threshold (0.0 to 1.0)
+  threshold: 0.7
+  
+  # Weights for confidence scoring components
+  weights:
+    data_density: 0.4      # Weight for data density analysis
+    header_quality: 0.3    # Weight for header detection
+    consistency: 0.3       # Weight for data consistency
+  
+  # Minimum number of rows required for analysis
+  min_rows: 5
+  
+  # Minimum number of columns required for analysis
+  min_columns: 1
+  
+  # Maximum percentage of empty cells allowed
+  max_empty_percentage: 0.8
+
+# CSV output settings
+output:
+  # Output directory (relative to current working directory)
+  # If null, saves next to source Excel file
+  folder: "./output"
+  
+  # Naming pattern for output files
+  # Available variables: {filename}, {worksheet}, {timestamp}
+  naming_pattern: "{filename}_{worksheet}.csv"
+  
+  # Whether to include timestamp in filename for duplicates
+  include_timestamp: true
+  
+  # CSV output encoding
+  encoding: "utf-8"
+  
+  # CSV delimiter
+  delimiter: ","
+  
+  # Whether to include headers in CSV output
+  include_headers: true
+  
+  # Date format for timestamp in filenames
+  timestamp_format: "%Y%m%d_%H%M%S"
+
+# Processing settings
+processing:
+  # Maximum number of concurrent file processing operations
+  max_concurrent: 5
+  
+  # Retry settings for failed files
+  retry:
+    max_attempts: 3
+    delay: 5              # Initial delay in seconds
+    backoff_factor: 2     # Exponential backoff multiplier
+    max_delay: 60         # Maximum delay between retries
+  
+  # Timeout settings
+  timeouts:
+    file_processing: 300  # Maximum time per file in seconds
+    worksheet_analysis: 60 # Maximum time per worksheet in seconds
+
+# Logging configuration
+logging:
+  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Log file settings
+  file:
+    enabled: true
+    path: "./logs/excel_to_csv.log"
+    max_size: 10          # Maximum log file size in MB
+    backup_count: 5       # Number of backup files to keep
+    rotation: true        # Enable log rotation
+  
+  # Console logging
+  console:
+    enabled: true
+    level: "INFO"
+  
+  # Structured logging (JSON format)
+  structured:
+    enabled: false
+    path: "./logs/excel_to_csv.json"
+
+# Performance settings
+performance:
+  # Memory usage limits
+  memory:
+    max_usage: 1024       # Maximum memory usage in MB
+    warning_threshold: 512 # Warning threshold in MB
+  
+  # Cache settings
+  cache:
+    enabled: true
+    size: 100             # Maximum number of cached items
+    ttl: 3600             # Time to live in seconds
+
+# Security settings
+security:
+  # File path validation
+  validate_paths: true
+  
+  # Allowed file extensions for processing
+  allowed_extensions:
+    - ".xlsx"
+    - ".xls"
+  
+  # Maximum path length
+  max_path_length: 260
+  
+  # Whether to follow symbolic links
+  follow_symlinks: false
+
+# File archiving settings
+archiving:
+  # Whether to automatically archive Excel files after processing
+  # When enabled, processed Excel files are moved to an "archive" subfolder
+  # within their original directory
+  enabled: true
+  
+  # Name of the archive subfolder to create
+  # This folder will be created within each monitored directory
+  archive_folder_name: "archive"
+  
+  # Timestamp format for resolving filename conflicts
+  # Used when a file with the same name already exists in the archive folder
+  timestamp_format: "%Y%m%d_%H%M%S"
+  
+  # Whether to handle filename conflicts by appending timestamps
+  # If false, conflicting files will overwrite existing archived files
+  handle_conflicts: true
+  
+  # Whether to preserve the original directory structure in archives
+  # Currently always true - archive folders mirror the input structure
+  preserve_structure: true

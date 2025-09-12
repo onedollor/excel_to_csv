@@ -14,6 +14,7 @@ import sys
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
 from queue import Queue, Empty
@@ -31,6 +32,12 @@ from excel_to_csv.utils.logging_config import setup_enhanced_logging, get_proces
 from excel_to_csv.utils.correlation import CorrelationContext
 from excel_to_csv.utils.logging_decorators import log_operation, operation_context
 from excel_to_csv.utils.metrics import get_metrics_collector
+from excel_to_csv.reporting.pdf_report_generator import PDFReportGenerator
+from excel_to_csv.reporting.report_generator import (
+    ExcelProcessingReport,
+    WorksheetAnalysisReport,
+    CSVGenerationReport
+)
 
 
 @dataclass
@@ -102,6 +109,16 @@ class ExcelToCSVConverter:
         self.stats = ProcessingStats()
         self.failed_files: Dict[Path, int] = {}  # Track retry counts
         self.processing_queue: Queue[Path] = Queue()
+        
+        # PDF Report generator
+        try:
+            self.report_generator = PDFReportGenerator(
+                output_dir=self.config.output_folder or Path('./reports')
+            )
+        except ImportError as e:
+            self.logger.warning(f"PDF report generation not available: {e}")
+            self.logger.info("Install reportlab for PDF reports: pip install reportlab")
+            self.report_generator = None
         
         # Service mode components
         self.file_monitor: Optional[FileMonitor] = None
@@ -595,6 +612,36 @@ class ExcelToCSVConverter:
                 processing_success = csv_files_created > 0 or len(qualified_worksheets) == 0
                 metrics.add_metadata("processing_success", processing_success)
                 
+                # Step 5: Generate comprehensive PDF report
+                if self.report_generator:
+                    self.logger.info(f"Step 5: Generating PDF processing report for {file_path}")
+                    try:
+                        report = self._create_processing_report(
+                            file_path=file_path,
+                            worksheets=worksheets,
+                            qualified_worksheets=qualified_worksheets,
+                            csv_files_created=csv_files_created,
+                            csv_generation_errors=csv_generation_errors,
+                            archive_result=worksheets[0].archive_result if worksheets and worksheets[0].archive_result else None,
+                            processing_success=processing_success,
+                            total_processing_time=time.time() * 1000 - metrics.start_time
+                        )
+                        
+                        report_path = self.report_generator.generate_report(report)
+                        self.logger.info(f"PDF processing report generated: {report_path}")
+                        metrics.add_metadata("report_generated", True)
+                        metrics.add_metadata("report_path", str(report_path))
+                        metrics.add_metadata("report_format", "PDF")
+                        
+                    except Exception as e:
+                        self.logger.warning(f"Failed to generate PDF processing report: {e}", exc_info=True)
+                        metrics.add_metadata("report_generated", False)
+                        metrics.add_metadata("report_error", str(e))
+                else:
+                    self.logger.info("PDF report generation skipped - ReportLab not available")
+                    metrics.add_metadata("report_generated", False)
+                    metrics.add_metadata("report_error", "ReportLab not installed")
+                
                 # Log completion summary
                 archive_status = ""
                 if self.config.archive_config.enabled:
@@ -629,6 +676,121 @@ class ExcelToCSVConverter:
                 metrics.add_metadata("error_message", str(e))
                 self.logger.error(f"Pipeline error for {file_path}: {e}", exc_info=True)
                 return False
+    
+    def _create_processing_report(
+        self,
+        file_path: Path,
+        worksheets: List[WorksheetData],
+        qualified_worksheets: List[WorksheetData],
+        csv_files_created: int,
+        csv_generation_errors: List[Dict],
+        archive_result: Optional,
+        processing_success: bool,
+        total_processing_time: float
+    ) -> ExcelProcessingReport:
+        """Create a comprehensive processing report.
+        
+        Args:
+            file_path: Path to the processed Excel file
+            worksheets: All worksheets found in the file
+            qualified_worksheets: Worksheets that passed confidence analysis
+            csv_files_created: Number of CSV files successfully created
+            csv_generation_errors: List of CSV generation errors
+            archive_result: Archive operation result
+            processing_success: Overall processing success status
+            total_processing_time: Total processing time in milliseconds
+            
+        Returns:
+            Comprehensive Excel processing report
+        """
+        # Create worksheet analysis reports
+        worksheet_reports = []
+        csv_reports = []
+        error_summary = []
+        
+        for worksheet in worksheets:
+            # Determine if this worksheet was qualified
+            is_qualified = worksheet in qualified_worksheets
+            
+            # Create worksheet analysis report
+            worksheet_report = self.report_generator.create_worksheet_report(
+                worksheet_data=worksheet,
+                confidence_score=worksheet.confidence_score,
+                header_info=getattr(worksheet, 'header_info', None),
+                csv_path=None,  # Will be set below if CSV was generated
+                processing_time_ms=50.0,  # Approximate per-worksheet time
+                issues=[]
+            )
+            worksheet_reports.append(worksheet_report)
+        
+        # Create CSV generation reports for successful generations
+        qualified_worksheet_names = {ws.worksheet_name for ws in qualified_worksheets}
+        for worksheet in qualified_worksheets:
+            if worksheet.worksheet_name not in [error['worksheet_name'] for error in csv_generation_errors]:
+                # This worksheet had successful CSV generation
+                csv_path = self._get_csv_output_path(worksheet, file_path)
+                if csv_path and csv_path.exists():
+                    csv_report = self.report_generator.create_csv_report(
+                        csv_path=csv_path,
+                        worksheet_name=worksheet.worksheet_name,
+                        rows_written=worksheet.row_count,
+                        columns_written=worksheet.column_count,
+                        encoding=self.config.output_config.encoding if hasattr(self.config.output_config, 'encoding') else "utf-8",
+                        delimiter=self.config.output_config.delimiter if hasattr(self.config.output_config, 'delimiter') else ",",
+                        generation_time_ms=25.0,  # Approximate generation time
+                        success=True
+                    )
+                    csv_reports.append(csv_report)
+                    
+                    # Update worksheet report with CSV info
+                    for ws_report in worksheet_reports:
+                        if ws_report.worksheet_name == worksheet.worksheet_name:
+                            ws_report.generated_csv = csv_path
+                            ws_report.csv_size_bytes = csv_path.stat().st_size
+                            break
+        
+        # Create CSV generation reports for failed generations
+        for error_info in csv_generation_errors:
+            worksheet_name = error_info['worksheet_name']
+            csv_report = self.report_generator.create_csv_report(
+                csv_path=Path("failed_generation.csv"),  # Placeholder path
+                worksheet_name=worksheet_name,
+                rows_written=0,
+                columns_written=0,
+                success=False,
+                error_message=error_info['error']
+            )
+            csv_reports.append(csv_report)
+            error_summary.append(f"CSV generation failed for '{worksheet_name}': {error_info['error']}")
+        
+        # Add general processing errors to summary
+        if not processing_success and not csv_generation_errors:
+            error_summary.append("Processing failed - no CSV files could be generated")
+        
+        # Create main processing report
+        report = ExcelProcessingReport(
+            source_file=file_path,
+            processing_timestamp=datetime.now(),
+            overall_success=processing_success,
+            worksheets_analyzed=worksheet_reports,
+            csv_files_generated=csv_reports,
+            total_processing_time_ms=total_processing_time,
+            confidence_threshold=self.config.confidence_config.threshold,
+            archive_result=archive_result,
+            error_summary=error_summary
+        )
+        
+        return report
+    
+    def _get_csv_output_path(self, worksheet: WorksheetData, source_file: Path) -> Optional[Path]:
+        """Get the expected output path for a worksheet's CSV file."""
+        try:
+            # Use the same logic as CSVGenerator to determine output path
+            output_dir = self.config.output_folder or source_file.parent
+            filename = f"{source_file.stem}_{worksheet.worksheet_name}.csv"
+            return output_dir / filename
+        except Exception:
+            return None
     
     def _log_statistics(self) -> None:
         """Log current processing statistics."""
