@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 from io import BytesIO
+import traceback
 
 try:
     from reportlab.lib import colors
@@ -23,6 +24,7 @@ try:
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
     REPORTLAB_AVAILABLE = True
 except ImportError:
+    print(traceback.format_exc())
     REPORTLAB_AVAILABLE = False
 
 from excel_to_csv.models.data_models import (
@@ -158,11 +160,19 @@ class PDFReportGenerator:
             len(str(report.source_file))
         )
         
-        # Generate report filename
-        timestamp = report.processing_timestamp.strftime("%Y%m%d_%H%M%S")
+        # Generate report filename with microseconds to avoid same-second collisions
+        timestamp = report.processing_timestamp.strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{report.source_file.stem}_{timestamp}_report.pdf"
         report_path = self.output_dir / filename
         
+        # Fallback: if by any chance file exists, append a numeric suffix
+        if report_path.exists():
+            base = f"{report.source_file.stem}_{timestamp}_report"
+            counter = 1
+            while report_path.exists():
+                report_path = self.output_dir / f"{base}_{counter}.pdf"
+                counter += 1
+
         # Create PDF document
         doc = SimpleDocTemplate(
             str(report_path),
@@ -192,8 +202,10 @@ class PDFReportGenerator:
         story.extend(self._create_technical_details(report))
         
         # Build PDF
+        self.logger.info(f"[DEBUG] About to build PDF at: {report_path.resolve()}")
         doc.build(story)
-        
+        self.logger.info(f"[DEBUG] Finished building PDF at: {report_path.resolve()}")
+
         self.logger.log_processing_complete(
             f"PDF report generated: {report_path}",
             1,
@@ -672,3 +684,4 @@ class PDFReportGenerator:
         from .report_generator import ReportGenerator
         temp_generator = ReportGenerator()
         return temp_generator.create_csv_report(*args, **kwargs)
+

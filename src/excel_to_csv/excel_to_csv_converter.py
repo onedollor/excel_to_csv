@@ -38,6 +38,7 @@ from excel_to_csv.reporting.report_generator import (
     WorksheetAnalysisReport,
     CSVGenerationReport
 )
+import traceback
 
 
 @dataclass
@@ -116,7 +117,7 @@ class ExcelToCSVConverter:
                 output_dir=self.config.output_folder or Path('./reports')
             )
         except ImportError as e:
-            self.logger.warning(f"PDF report generation not available: {e}")
+            self.logger.warning(f"PDF report generation not available: {e} {traceback.format_exc()}")
             self.logger.info("Install reportlab for PDF reports: pip install reportlab")
             self.report_generator = None
         
@@ -176,7 +177,7 @@ class ExcelToCSVConverter:
             
             # Start file monitor
             self.file_monitor = FileMonitor(
-                folders=self.config.monitored_folders,
+                folders=[Path(folder) for folder in self.config.monitored_folders],
                 file_patterns=self.config.file_patterns,
                 callback=self._on_file_detected,
                 process_existing=True
@@ -733,8 +734,8 @@ class ExcelToCSVConverter:
                     csv_report = self.report_generator.create_csv_report(
                         csv_path=csv_path,
                         worksheet_name=worksheet.worksheet_name,
-                        rows_written=worksheet.row_count,
-                        columns_written=worksheet.column_count,
+                        rows_written=len(worksheet.data),
+                        columns_written=len(worksheet.data.columns),
                         encoding=self.config.output_config.encoding if hasattr(self.config.output_config, 'encoding') else "utf-8",
                         delimiter=self.config.output_config.delimiter if hasattr(self.config.output_config, 'delimiter') else ",",
                         generation_time_ms=25.0,  # Approximate generation time

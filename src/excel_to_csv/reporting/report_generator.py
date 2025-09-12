@@ -445,9 +445,12 @@ class ReportGenerator:
             passed = confidence_score.is_confident
             reasons.extend(confidence_score.reasons)
         
-        # Calculate data density
-        total_cells = worksheet_data.row_count * worksheet_data.column_count
-        data_density = worksheet_data.non_empty_cell_count / max(total_cells, 1)
+        # Calculate data density from DataFrame
+        row_count = len(worksheet_data.data)
+        column_count = len(worksheet_data.data.columns)
+        non_empty_cells = worksheet_data.data.count().sum()  # Count non-null values
+        total_cells = row_count * column_count
+        data_density = non_empty_cells / max(total_cells, 1)
         
         # Get CSV file size if it exists
         csv_size = 0
@@ -458,9 +461,9 @@ class ReportGenerator:
             worksheet_name=worksheet_data.worksheet_name,
             passed=passed,
             confidence_score=confidence_score,
-            row_count=worksheet_data.row_count,
-            column_count=worksheet_data.column_count,
-            non_empty_cells=worksheet_data.non_empty_cell_count,
+            row_count=row_count,
+            column_count=column_count,
+            non_empty_cells=non_empty_cells,
             header_info=header_info,
             data_density=data_density,
             reasons=reasons,
